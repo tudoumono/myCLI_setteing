@@ -166,7 +166,7 @@ show_intro_once() {
 説明付きで実行するラッパーです。
 
 使い方の目安:
-  1. 初回: project-init
+  1. 初回: 詳細メニューで init（1回）
   2. 日常: sync-here(確認) -> promote-here(反映) -> status-here
   3. 復旧: reset-here（必要なら --dry-run）
   4. 詳細操作: 日常メニューで a を選択
@@ -180,7 +180,9 @@ show_help_text() {
   cat >"${help_file}" <<'EOF_HELP'
 [クイックガイド]
 - まず使う:
-  project-init -> sync-here -> promote-here -> status-here
+  sync-here -> promote-here -> status-here
+- 初回のみ:
+  詳細メニューで init
 - 変更前確認:
   diff または sync-here/reset-here + --dry-run
 - 迷ったら:
@@ -190,7 +192,7 @@ show_help_text() {
 - メインメニュー:
   日常運用で使う最小コマンドのみ表示
 - 詳細メニュー:
-  すべてのコマンド（上級者向け）
+  主要コマンド（上級者向け）
 - init:
   setupScript 配下の必須ファイルを初期化し、ユーザ設定へ反映
 - lock-base:
@@ -203,16 +205,12 @@ show_help_text() {
   レイヤーをマージして3CLIへ配布（昇格）
 - reset:
   設定をベースへ戻し、skills / instructions を再配布
-- all:
-  update + sync を連続実行（必要時のみ共通化）
 - diff:
   syncした場合の差分を確認
 - check:
   skills / instructions のドリフト検知（CI向け）
 - status:
   現在状態（レイヤー、MCP数、skills 等）を表示
-- project-init:
-  プロジェクト雛形を作成して差分確認まで実施
 - *-here:
   指定したプロジェクトディレクトリ基準で実行
 - skill-share:
@@ -227,11 +225,11 @@ show_help_text() {
   ユーザ設定を完全に削除する（空状態）
 
 [安全運用のポイント]
-- reset / all の前は --dry-run を推奨
+- reset の前は --dry-run を推奨
 - setupScript 直下専用:
   init / lock-base
 - PJフォルダ推奨:
-  project-init / sync-here / status-here
+  sync-here / promote-here / status-here
 - setupScript 直下で *-here を使う場合:
   先に対象PJディレクトリを入力する
 EOF_HELP
@@ -333,7 +331,7 @@ run_project_cmd() {
     args+=("--dry-run")
   fi
 
-  if [[ "${cmd}" == "reset" || "${cmd}" == "all" ]]; then
+  if [[ "${cmd}" == "reset" ]]; then
     if ! ui_confirm "${cmd} は設定の再配布やアンインストール処理を含みます。\n実行しますか？" "N"; then
       ui_message "キャンセル" "処理を中止しました。"
       return 0
@@ -366,7 +364,7 @@ run_here_cmd() {
     args+=("--dry-run")
   fi
 
-  if [[ "${cmd}" == "reset-here" || "${cmd}" == "all-here" ]]; then
+  if [[ "${cmd}" == "reset-here" ]]; then
     if ! ui_confirm "${cmd} は設定の再配布やアンインストール処理を含みます。\n実行しますか？" "N"; then
       ui_message "キャンセル" "処理を中止しました。"
       return 0
@@ -374,22 +372,6 @@ run_here_cmd() {
   fi
 
   run_update_ai "${target_dir}" "${args[@]}"
-}
-
-run_project_init() {
-  local target_dir=""
-  local default_dir=""
-  default_dir="$(default_project_dir_for_prompt)"
-  if ! target_dir="$(ask_directory_required "project-init" "${default_dir}")"; then
-    ui_message "キャンセル" "入力をキャンセルしました。"
-    return 0
-  fi
-  if [[ "${target_dir}" == "${SCRIPT_DIR}" ]]; then
-    ui_message "入力エラー" "setupScript フォルダ自体は指定できません。\nプロジェクトフォルダを指定してください。"
-    return 0
-  fi
-  LAST_PROJECT_DIR="${target_dir}"
-  run_update_ai "${SCRIPT_DIR}" project-init "${target_dir}"
 }
 
 run_skill_share() {
@@ -466,15 +448,13 @@ print_main_menu_text() {
 ========================================
  AI CLI 設定メニュー（日常）
 ========================================
- 1) project-init   : PJ初期化（初回）
- 2) promote-here   : 設定反映（推奨）
- 3) status-here    : 状態確認（推奨）
- 4) sync-here      : 反映予定確認（プレビュー）
- 5) diff [project] : 変更予定確認
- 6) reset-here     : 復旧（注意）
- 7) skill-share    : ローカルスキル1件共有
- 8) skill-share-all: ローカルスキル一括共有
- 9) ガイド         : 使い分けを表示
+ 1) promote-here   : 設定反映（推奨）
+ 2) status-here    : 状態確認（推奨）
+ 3) sync-here      : 反映予定確認（プレビュー）
+ 4) reset-here     : 復旧（注意）
+ 5) skill-share    : ローカルスキル1件共有
+ 6) skill-share-all: ローカルスキル一括共有
+ 7) ガイド         : 使い分けを表示
 
  a) 詳細メニュー   : 全コマンドを表示
  q) 終了
@@ -497,26 +477,23 @@ print_advanced_menu_text() {
  4) sync [project]       (プレビュー)
  5) promote [project]    (反映)
  6) reset [project]
- 7) all [project]
- 8) diff [project]
- 9) check [project]
-10) status [project]
+ 7) diff [project]
+ 8) check [project]
+ 9) status [project]
 
  [PJ運用]
-11) project-init
-12) sync-here            (プレビュー)
-13) promote-here         (反映)
-14) reset-here
-15) all-here
-16) status-here
+10) sync-here            (プレビュー)
+11) promote-here         (反映)
+12) reset-here
+13) status-here
 
  [補助]
-17) help
-18) skill-share
-19) skill-promote
-20) skill-share-all
-21) reset-user
-22) wipe-user
+14) help
+15) skill-share
+16) skill-promote
+17) skill-share-all
+18) reset-user
+19) wipe-user
  b) 戻る
  q) 終了
 ========================================
@@ -551,22 +528,19 @@ handle_advanced_menu() {
       4) run_project_cmd "sync" "yes" ;;
       5) run_project_cmd "promote" "yes" ;;
       6) run_project_cmd "reset" "yes" ;;
-      7) run_project_cmd "all" "yes" ;;
-      8) run_project_cmd "diff" "no" ;;
-      9) run_project_cmd "check" "no" ;;
-      10) run_project_cmd "status" "no" ;;
-      11) run_project_init ;;
-      12) run_here_cmd "sync-here" "yes" ;;
-      13) run_here_cmd "promote-here" "yes" ;;
-      14) run_here_cmd "reset-here" "yes" ;;
-      15) run_here_cmd "all-here" "yes" ;;
-      16) run_here_cmd "status-here" "no" ;;
-      17) run_update_ai "${SCRIPT_DIR}" --help ;;
-      18) run_skill_share ;;
-      19) run_skill_promote ;;
-      20) run_skill_share_all ;;
-      21) run_reset_user ;;
-      22) run_wipe_user ;;
+      7) run_project_cmd "diff" "no" ;;
+      8) run_project_cmd "check" "no" ;;
+      9) run_project_cmd "status" "no" ;;
+      10) run_here_cmd "sync-here" "yes" ;;
+      11) run_here_cmd "promote-here" "yes" ;;
+      12) run_here_cmd "reset-here" "yes" ;;
+      13) run_here_cmd "status-here" "no" ;;
+      14) run_update_ai "${SCRIPT_DIR}" --help ;;
+      15) run_skill_share ;;
+      16) run_skill_promote ;;
+      17) run_skill_share_all ;;
+      18) run_reset_user ;;
+      19) run_wipe_user ;;
       b|B|back) return 0 ;;
       q|Q|quit|exit) return 1 ;;
       *)
@@ -589,15 +563,13 @@ main() {
     fi
 
     case "${choice}" in
-      1) run_project_init ;;
-      2) run_here_cmd "promote-here" "yes" ;;
-      3) run_here_cmd "status-here" "no" ;;
-      4) run_here_cmd "sync-here" "yes" ;;
-      5) run_project_cmd "diff" "no" ;;
-      6) run_here_cmd "reset-here" "yes" ;;
-      7) run_skill_share ;;
-      8) run_skill_share_all ;;
-      9) show_help_text ;;
+      1) run_here_cmd "promote-here" "yes" ;;
+      2) run_here_cmd "status-here" "no" ;;
+      3) run_here_cmd "sync-here" "yes" ;;
+      4) run_here_cmd "reset-here" "yes" ;;
+      5) run_skill_share ;;
+      6) run_skill_share_all ;;
+      7) show_help_text ;;
       a|A)
         if ! handle_advanced_menu; then
           break
