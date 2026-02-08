@@ -2,6 +2,7 @@
 model = "gpt-5.3-codex"
 personality = "pragmatic"
 model_reasoning_effort = "xhigh"
+web_search = "live"
 
 [projects."/root"]
 trust_level = "trusted"
@@ -10,6 +11,3 @@ trust_level = "trusted"
 shell_snapshot = true
 collab = true
 apps = true
-
-[tools]
-web_search = true

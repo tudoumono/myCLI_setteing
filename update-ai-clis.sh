@@ -139,6 +139,7 @@ write_codex_base_template() {
 model = "gpt-5.3-codex"
 personality = "pragmatic"
 model_reasoning_effort = "xhigh"
+web_search = "live"
 
 [projects."/root"]
 trust_level = "trusted"
@@ -147,9 +148,6 @@ trust_level = "trusted"
 shell_snapshot = true
 collab = true
 apps = true
-
-[tools]
-web_search = true
 EOF_CODEX_BASE
 }
 
@@ -1207,39 +1205,45 @@ ensure_codex_web_search_default() {
   awk '
     BEGIN {
       in_tools=0;
-      seen_tools=0;
-      seen_web=0;
+      before_first_table=1;
+      seen_root_web=0;
+      inserted_root_web=0;
+    }
+    /^[[:space:]]*\[/ {
+      if (before_first_table == 1 && inserted_root_web == 0) {
+        print "web_search = \"live\"";
+        print "";
+        seen_root_web=1;
+        inserted_root_web=1;
+      }
+      before_first_table=0;
     }
     /^[[:space:]]*\[tools\][[:space:]]*$/ {
       in_tools=1;
-      seen_tools=1;
       print;
       next;
     }
     /^[[:space:]]*\[/ {
-      if (in_tools == 1 && seen_web == 0) {
-        print "web_search = true";
-        seen_web=1;
-      }
       in_tools=0;
     }
     {
-      if (in_tools == 1 && $0 ~ /^[[:space:]]*web_search[[:space:]]*=/) {
-        if (seen_web == 0) {
-          print "web_search = true";
-          seen_web=1;
+      if (before_first_table == 1 && $0 ~ /^[[:space:]]*web_search[[:space:]]*=/) {
+        if (seen_root_web == 0) {
+          print "web_search = \"live\"";
+          seen_root_web=1;
+          inserted_root_web=1;
         }
+        next;
+      }
+      if (in_tools == 1 && $0 ~ /^[[:space:]]*web_search[[:space:]]*=/) {
         next;
       }
       print;
     }
     END {
-      if (seen_tools == 0) {
+      if (seen_root_web == 0) {
         print "";
-        print "[tools]";
-        print "web_search = true";
-      } else if (in_tools == 1 && seen_web == 0) {
-        print "web_search = true";
+        print "web_search = \"live\"";
       }
     }
   ' "${CODEX_TOML}" > "${tmp}"
@@ -1695,7 +1699,7 @@ sync_all() {
 
   sync_codex_mcp
   ensure_codex_web_search_default
-  info "Synced Codex defaults: web_search = true"
+  info "Synced Codex defaults: web_search = \"live\""
 
   local claude_count
   claude_count="$(sync_claude_mcp)"
@@ -1888,9 +1892,19 @@ status() {
   fi
   printf "  %-24s %s\n" "Codex mcp_servers:" "${codex_count}"
 
-  local codex_web="off"
-  if [[ -f "${CODEX_TOML}" ]] && grep -qE '^[[:space:]]*web_search[[:space:]]*=[[:space:]]*true' "${CODEX_TOML}"; then
-    codex_web="on"
+  local codex_web="unset"
+  if [[ -f "${CODEX_TOML}" ]]; then
+    if grep -qE '^[[:space:]]*web_search[[:space:]]*=[[:space:]]*"live"' "${CODEX_TOML}"; then
+      codex_web="live"
+    elif grep -qE '^[[:space:]]*web_search[[:space:]]*=[[:space:]]*"cached"' "${CODEX_TOML}"; then
+      codex_web="cached"
+    elif grep -qE '^[[:space:]]*web_search[[:space:]]*=[[:space:]]*"disabled"' "${CODEX_TOML}"; then
+      codex_web="disabled"
+    elif grep -qE '^[[:space:]]*web_search[[:space:]]*=[[:space:]]*true' "${CODEX_TOML}"; then
+      codex_web="live (legacy)"
+    elif grep -qE '^[[:space:]]*web_search[[:space:]]*=[[:space:]]*false' "${CODEX_TOML}"; then
+      codex_web="disabled (legacy)"
+    fi
   fi
   printf "  %-24s %s\n" "Codex web_search:" "${codex_web}"
 

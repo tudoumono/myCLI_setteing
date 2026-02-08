@@ -111,7 +111,7 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 
 - Claude: `permissions.allow` に `WebSearch` を付与
 - Claude: Read系は `Read/Grep/Glob/LS` を付与（`Bash(cat|ls|find|grep...)` は使わない方針）
-- Codex: `[tools] web_search = true` を維持
+- Codex: `web_search = "live"`（トップレベル）を維持
 - Gemini: `~/.gemini/settings.json` の `mcpServers` に直接反映 + managed manifest を同期
 - 日本語をデフォルト方針として管理
 
