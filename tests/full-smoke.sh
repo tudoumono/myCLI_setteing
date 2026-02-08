@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_ROOT="$(mktemp -d)"
 TMP_HOME="$(mktemp -d)"
 TMP_WORK="$(mktemp -d)"
+TMP_PROJECT_LOCAL="$(mktemp -d)"
 SCRIPT_DIR=""
 SCRIPT=""
 SETTINGS_BEFORE=""
@@ -17,7 +18,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 cleanup() {
-  rm -rf "${TMP_ROOT}" "${TMP_HOME}" "${TMP_WORK}"
+  rm -rf "${TMP_ROOT}" "${TMP_HOME}" "${TMP_WORK}" "${TMP_PROJECT_LOCAL}"
   if [[ -n "${SETTINGS_BEFORE}" && -f "${SETTINGS_BEFORE}" ]]; then
     rm -f "${SETTINGS_BEFORE}"
   fi
@@ -81,6 +82,45 @@ assert_exit_nonzero "all-here --dry-run fails when base lock missing" bash -lc "
 assert_exit_0 "lock-base restores base lock" bash -lc "cd \"${SCRIPT_DIR}\" && \"${SCRIPT}\" lock-base"
 assert_file_exists "base.lock restored" "${SCRIPT_DIR}/ai-config/base.lock.sha256"
 
+# --- project-init ---
+echo "-- project-init --"
+assert_exit_0 "project-init runs" "${SCRIPT}" project-init "${TMP_PROJECT_LOCAL}"
+assert_file_exists "project local config exists" "${TMP_PROJECT_LOCAL}/.ai-stack.local.json"
+assert_file_contains "project local config has projectServers" "${TMP_PROJECT_LOCAL}/.ai-stack.local.json" "projectServers"
+assert_file_not_exists "project-init does not create .gitignore by default" "${TMP_PROJECT_LOCAL}/.gitignore"
+assert_file_not_exists "project-init does not create legacy overlay" "${SCRIPT_DIR}/ai-config/projects/$(basename "${TMP_PROJECT_LOCAL}").json"
+
+# --- promote flow ---
+echo "-- promote flow --"
+cat > "${TMP_PROJECT_LOCAL}/.ai-stack.local.json" <<'EOF'
+{
+  "projectServers": ["pj-test-server"],
+  "servers": {
+    "pj-test-server": {
+      "enabled": true,
+      "command": "echo",
+      "args": ["hello-from-project"],
+      "targets": ["claude", "codex", "gemini"],
+      "delivery": {
+        "claude": "plugin",
+        "codex": "config",
+        "gemini": "settings"
+      }
+    }
+  }
+}
+EOF
+
+assert_exit_0 "sync-here runs (preview only)" bash -lc "cd \"${TMP_PROJECT_LOCAL}\" && \"${SCRIPT}\" sync-here"
+assert_file_not_contains() {
+  local label="$1" path="$2" pattern="$3"
+  if ! grep -q "${pattern}" "${path}" 2>/dev/null; then pass "${label}"; else fail "${label}: '${pattern}' unexpectedly in ${path}"; fi
+}
+assert_file_not_contains "sync-here did not apply project server to codex" "${HOME}/.codex/config.toml" "pj-test-server"
+
+assert_exit_0 "promote-here applies project settings" bash -lc "cd \"${TMP_PROJECT_LOCAL}\" && \"${SCRIPT}\" promote-here"
+assert_file_contains "promote-here applied project server to codex" "${HOME}/.codex/config.toml" "pj-test-server"
+
 # --- sync ---
 echo "-- sync --"
 assert_exit_0 "sync runs" "${SCRIPT}" sync
@@ -114,6 +154,15 @@ assert_file_exists "skill-share copied to gemini" "${HOME}/.gemini/skills/pj-loc
 assert_file_contains "skill-share rendered claude path" "${HOME}/.claude/skills/pj-local-share/SKILL.md" "${HOME}/.claude/skills"
 assert_file_contains "skill-share rendered gemini path" "${HOME}/.gemini/skills/pj-local-share/SKILL.md" "${HOME}/.gemini/skills"
 assert_file_contains "skill-share rendered codex path" "${HOME}/.codex/skills/pj-local-share/SKILL.md" "${HOME}/.codex/skills"
+
+mkdir -p "${TMP_WORK}/pj-promoted-skill"
+cat > "${TMP_WORK}/pj-promoted-skill/SKILL.md" <<'EOF'
+# pj-promoted-skill
+path: {{SKILLS_DIR}}
+EOF
+assert_exit_0 "skill-promote from directory runs" "${SCRIPT}" skill-promote "${TMP_WORK}/pj-promoted-skill"
+assert_file_exists "skill-promote copied to codex" "${HOME}/.codex/skills/pj-promoted-skill/SKILL.md"
+assert_file_contains "skill-promote rendered codex path" "${HOME}/.codex/skills/pj-promoted-skill/SKILL.md" "${HOME}/.codex/skills"
 
 mkdir -p "${HOME}/.claude/skills/pj-only-claude"
 cat > "${HOME}/.claude/skills/pj-only-claude/SKILL.md" <<'EOF'
@@ -189,6 +238,20 @@ cp "${HOME}/.claude/settings.json" "${SETTINGS_BEFORE}"
 assert_files_equal "dry-run did not change settings" "${HOME}/.claude/settings.json" "${SETTINGS_BEFORE}"
 rm -f "${SETTINGS_BEFORE}"
 SETTINGS_BEFORE=""
+
+# --- user reset modes ---
+echo "-- user reset modes --"
+assert_exit_0 "wipe-user dry-run runs" "${SCRIPT}" wipe-user --dry-run
+assert_exit_0 "wipe-user runs" "${SCRIPT}" wipe-user
+assert_file_not_exists "wipe-user removed codex config" "${HOME}/.codex/config.toml"
+assert_file_not_exists "wipe-user removed claude settings" "${HOME}/.claude/settings.json"
+assert_file_not_exists "wipe-user removed gemini settings" "${HOME}/.gemini/settings.json"
+
+assert_exit_0 "reset-user dry-run runs" bash -lc "cd \"${SCRIPT_DIR}\" && \"${SCRIPT}\" reset-user --dry-run"
+assert_exit_0 "reset-user restores from git config" bash -lc "cd \"${SCRIPT_DIR}\" && \"${SCRIPT}\" reset-user"
+assert_file_exists "reset-user restored codex config" "${HOME}/.codex/config.toml"
+assert_file_exists "reset-user restored claude settings" "${HOME}/.claude/settings.json"
+assert_file_exists "reset-user restored gemini settings" "${HOME}/.gemini/settings.json"
 
 # --- status ---
 echo "-- status --"

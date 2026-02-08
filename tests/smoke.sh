@@ -36,11 +36,23 @@ export PATH="${MOCK_BIN}:${PATH}"
 
 bash -lc "cd \"${TMP_ROOT}/setupScript\" && \"${SCRIPT}\" init"
 "${SCRIPT}" sync "${TMP_PROJECT}"
+"${SCRIPT}" promote "${TMP_PROJECT}"
 "${SCRIPT}" status "${TMP_PROJECT}" >/dev/null
 "${SCRIPT}" reset "${TMP_PROJECT}"
 "${SCRIPT}" sync "${TMP_PROJECT}" --dry-run >/dev/null
+"${SCRIPT}" promote "${TMP_PROJECT}" --dry-run >/dev/null
 "${SCRIPT}" reset "${TMP_PROJECT}" --dry-run >/dev/null
 "${SCRIPT}" diff "${TMP_PROJECT}" >/dev/null
+
+mkdir -p "${TMP_PROJECT}/pj-smoke-skill"
+cat > "${TMP_PROJECT}/pj-smoke-skill/SKILL.md" <<'EOF'
+# pj-smoke-skill
+path: {{SKILLS_DIR}}
+EOF
+"${SCRIPT}" skill-promote "${TMP_PROJECT}/pj-smoke-skill" >/dev/null
+"${SCRIPT}" wipe-user --dry-run >/dev/null
+"${SCRIPT}" wipe-user >/dev/null
+bash -lc "cd \"${TMP_ROOT}/setupScript\" && \"${SCRIPT}\" reset-user" >/dev/null
 
 test -f "${HOME}/.codex/config.toml"
 test -f "${HOME}/.claude/settings.json"

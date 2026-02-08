@@ -11,6 +11,8 @@ BASE_REGISTRY_FILE="${CONFIG_DIR}/base.json"
 BASE_LOCK_FILE="${CONFIG_DIR}/base.lock.sha256"
 PROJECTS_DIR="${CONFIG_DIR}/projects"
 GLOBAL_LOCAL_FILE="${CONFIG_DIR}/local.json"
+PROJECT_LOCAL_FILE_NAME=".ai-stack.local.json"
+PROJECT_LOCAL_INSTRUCTIONS_FILE_NAME=".ai-stack.instructions.md"
 CODEX_BASE_FILE="${CONFIG_DIR}/codex-base.toml"
 SKILLS_MASTER_DIR="${CONFIG_DIR}/skills"
 GLOBAL_INSTRUCTIONS="${CONFIG_DIR}/global-instructions.md"
@@ -60,6 +62,8 @@ usage() {
   ./update-ai-clis.sh update
   ./update-ai-clis.sh sync [project]
   ./update-ai-clis.sh sync-here
+  ./update-ai-clis.sh promote [project]
+  ./update-ai-clis.sh promote-here
   ./update-ai-clis.sh reset [project]
   ./update-ai-clis.sh reset-here
   ./update-ai-clis.sh all [project]
@@ -69,22 +73,28 @@ usage() {
   ./update-ai-clis.sh status [project]
   ./update-ai-clis.sh status-here
   ./update-ai-clis.sh skill-share <skill_name>
+  ./update-ai-clis.sh skill-promote <skill_name|skill_dir>
   ./update-ai-clis.sh skill-share-all
+  ./update-ai-clis.sh wipe-user
+  ./update-ai-clis.sh reset-user
   ./update-ai-clis.sh -h
   ./update-ai-clis.sh help
   ./update-ai-clis.sh --help
   ./update-ai-clis.sh update --dry-run
-  ./update-ai-clis.sh <sync|reset|all> [project] --dry-run
-  ./update-ai-clis.sh <sync-here|reset-here|all-here> --dry-run
-  ./update-ai-clis.sh <skill-share|skill-share-all> --dry-run
+  ./update-ai-clis.sh <sync|promote|reset|all> [project] --dry-run
+  ./update-ai-clis.sh <sync-here|promote-here|reset-here|all-here> --dry-run
+  ./update-ai-clis.sh <skill-share|skill-promote|skill-share-all> --dry-run
+  ./update-ai-clis.sh <wipe-user|reset-user> --dry-run
 
 コマンド説明:
-  init    ai-config/ 配下のベースファイルを作成します（setupScript フォルダでのみ実行可能）。
+  init    ai-config/ 配下のベースファイルを作成し、ユーザ設定へ反映します（setupScript フォルダでのみ実行可能）。
   lock-base  base.json のハッシュロックを更新します（意図したベース更新時のみ。setupScript フォルダでのみ実行可能）。
-  project-init  現在ディレクトリ（または指定パス）のプロジェクト用オーバーレイを初期化し、sync を実行します。
+  project-init  現在ディレクトリ（または指定パス）にPJ管理用ファイルを初期化し、差分を表示します。
   update  Claude/Gemini/Codex CLI を npm 経由で更新します。
-  sync    統合設定を適用します（Global + Project + Folder local レイヤー）。
-  sync-here  project = 現在ディレクトリとして sync を実行します。
+  sync    ユーザ設定差分を検出し、差分があれば共通設定へ揃えます（PJ文脈では ~/ 配下へ反映しません）。
+  sync-here  project = 現在ディレクトリとして差分確認を実行します（~/ 配下へ反映しません）。
+  promote  統合設定を ~/ 配下の各CLI設定へ反映します（昇格）。
+  promote-here  project = 現在ディレクトリとして昇格を実行します。
   reset   ベース状態へ戻します（MCP設定のクリア + 登録済みMCPパッケージのアンインストール）。
   reset-here  project = 現在ディレクトリとして reset を実行します。
   all     update の後に sync を実行します。
@@ -94,14 +104,21 @@ usage() {
   status  バージョン情報と有効設定状態を表示します。
   status-here  project = 現在ディレクトリとして status を表示します。
   skill-share  指定したローカルスキルを 3CLI 間で共有します（managed skill は対象外）。
+  skill-promote  PJで作成したスキル（名前またはディレクトリ）を3CLIのユーザ設定へ昇格します。
   skill-share-all  ローカルスキル（managed 以外）を 3CLI 間で一括共有します。
-  --dry-run  update/sync/reset/all（*-here 含む）と skill-share 系を実変更なしでプレビューします。
+  wipe-user  ユーザ設定を完全に削除します（git設定反映も含めて空にする）。
+  reset-user  ユーザ設定をgit管理の設定へ戻します（initと同等）。
+  --dry-run  update/sync/promote/reset/all（*-here 含む）と skill-share 系、wipe/reset-user を実変更なしでプレビューします。
 
 レイヤー優先順（後ろほど優先）:
   1) ai-config/base.json               （グローバル）
-  2) ai-config/projects/<project>.json （プロジェクト、任意）
+  2) ai-config/projects/<project>.json （レガシーPJ差分、任意）
   3) ai-config/local.json              （マシンローカル、任意）
-  4) ./.ai-stack.local.json            （フォルダローカル、任意）
+  4) <project>/.ai-stack.local.json    （PJローカル、任意・コミット可）
+  
+補足:
+  - `<project>/.ai-stack.local.json` で `projectServers: ["name"]` を指定すると、
+    実行中プロジェクトの絶対パスへ自動マッピングされます（絶対パスをJSONへ直書き不要）。
 USAGE_EOF
 }
 
@@ -434,6 +451,36 @@ share_skill_to_all_targets() {
   info "Shared local skill '${skill_name}' from ${src_cli} to claude/gemini/codex"
 }
 
+copy_skill_dir_to_all_targets() {
+  local skill_dir="$1"
+  local skill_name="$2"
+
+  if [[ ! -f "${skill_dir}/SKILL.md" ]]; then
+    error "SKILL.md not found: ${skill_dir}/SKILL.md"
+    return 1
+  fi
+
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    info "Dry-run: would promote '${skill_name}' from ${skill_dir} -> claude/gemini/codex"
+    return 0
+  fi
+
+  local cli=""
+  local target_dir=""
+  local target_skill_dir=""
+  for cli in claude gemini codex; do
+    target_dir="$(skills_dir_for_cli "${cli}")" || return 1
+    target_skill_dir="${target_dir}/${skill_name}"
+    mkdir -p "${target_dir}"
+    rm -rf "${target_skill_dir}"
+    mkdir -p "${target_skill_dir}"
+    cp -a "${skill_dir}/." "${target_skill_dir}/"
+    render_skill_for_target "${target_skill_dir}/SKILL.md" "${target_dir}"
+  done
+
+  info "Promoted skill '${skill_name}' to claude/gemini/codex user settings."
+}
+
 skill_share() {
   local skill_name="${1:-}"
   if [[ -z "${skill_name}" ]]; then
@@ -443,6 +490,33 @@ skill_share() {
   bootstrap_config_files "verify"
   validate_base_locked
   share_skill_to_all_targets "${skill_name}"
+}
+
+skill_promote() {
+  local skill_ref="${1:-}"
+  if [[ -z "${skill_ref}" ]]; then
+    error "Usage: ./update-ai-clis.sh skill-promote <skill_name|skill_dir>"
+    exit 1
+  fi
+
+  bootstrap_config_files "verify"
+  validate_base_locked
+
+  if [[ -d "${skill_ref}" ]]; then
+    local skill_dir
+    skill_dir="$(resolve_abs_path "${skill_ref}")"
+    local skill_name
+    skill_name="$(basename "${skill_dir}")"
+    if [[ "${skill_name}" == *"/"* || -z "${skill_name}" ]]; then
+      error "Invalid skill directory name: ${skill_name}"
+      exit 1
+    fi
+    copy_skill_dir_to_all_targets "${skill_dir}" "${skill_name}"
+    return 0
+  fi
+
+  # If a name is passed, fallback to existing local-skill share behavior.
+  share_skill_to_all_targets "${skill_ref}" "yes"
 }
 
 skill_share_all() {
@@ -534,17 +608,39 @@ build_merged_instructions() {
 
   if [[ -n "${project_ref}" ]]; then
     local project_name=""
+    local project_dir=""
     if [[ -d "${project_ref}" ]]; then
-      project_name="$(basename "${project_ref}")"
+      project_dir="$(resolve_abs_path "${project_ref}")"
+      project_name="$(basename "${project_dir}")"
     elif [[ -f "${project_ref}" ]]; then
-      project_name="$(basename "${project_ref}" .json)"
+      local abs_ref=""
+      abs_ref="$(resolve_abs_path "${project_ref}")"
+      project_dir="$(dirname "${abs_ref}")"
+      if [[ "$(basename "${abs_ref}")" == *.json ]]; then
+        project_name="$(basename "${abs_ref}" .json)"
+      else
+        project_name="$(basename "${project_dir}")"
+      fi
     else
       project_name="${project_ref}"
     fi
-    local project_instructions="${PROJECTS_DIR}/${project_name}.instructions.md"
-    if [[ -f "${project_instructions}" ]]; then
+
+    local legacy_project_instructions=""
+    if [[ -n "${project_name}" ]]; then
+      legacy_project_instructions="${PROJECTS_DIR}/${project_name}.instructions.md"
+    fi
+    if [[ -n "${legacy_project_instructions}" && -f "${legacy_project_instructions}" ]]; then
       [[ -s "${merged}" ]] && printf "\n" >> "${merged}"
-      cat "${project_instructions}" >> "${merged}"
+      cat "${legacy_project_instructions}" >> "${merged}"
+    fi
+
+    local project_local_instructions=""
+    if [[ -n "${project_dir}" ]]; then
+      project_local_instructions="${project_dir}/${PROJECT_LOCAL_INSTRUCTIONS_FILE_NAME}"
+    fi
+    if [[ -n "${project_local_instructions}" && -f "${project_local_instructions}" ]]; then
+      [[ -s "${merged}" ]] && printf "\n" >> "${merged}"
+      cat "${project_local_instructions}" >> "${merged}"
     fi
   fi
 
@@ -630,7 +726,8 @@ validate_base_locked() {
   actual="$(sha256_of_file "${BASE_REGISTRY_FILE}")"
   if [[ -z "${expected}" || "${expected}" != "${actual}" ]]; then
     error "base.json changed and is locked. Keep base as main baseline."
-    error "Add extra features in projects/<name>.json or .ai-stack.local.json."
+    error "Add extra features in <project>/.ai-stack.local.json or ai-config/local.json."
+    error "Legacy overlay (ai-config/projects/<name>.json) is optional for compatibility."
     error "If this base change is intentional, run: ./update-ai-clis.sh lock-base"
     exit 1
   fi
@@ -670,6 +767,25 @@ assert_setupscript_dir() {
     error "Current directory: ${current_dir}"
     exit 1
   fi
+}
+
+is_project_context() {
+  if [[ -n "${ACTIVE_PROJECT_REF}" ]]; then
+    return 0
+  fi
+
+  local current_dir
+  current_dir="$(pwd -P)"
+  if [[ "${current_dir}" != "${SCRIPT_DIR}" && -f "${current_dir}/${PROJECT_LOCAL_FILE_NAME}" ]]; then
+    return 0
+  fi
+
+  return 1
+}
+
+warn_promote_required() {
+  warn "Project context detected. This command does not write user configs under ~/."
+  warn "Use 'promote' or 'promote-here' to apply project settings to Claude/Codex/Gemini."
 }
 
 backup_file() {
@@ -748,11 +864,6 @@ bootstrap_config_files() {
   else
     if [[ ! -d "${CONFIG_DIR}" ]]; then
       error "Config directory missing: ${CONFIG_DIR}"
-      error "Run './update-ai-clis.sh init' from setupScript directory first."
-      exit 1
-    fi
-    if [[ ! -d "${PROJECTS_DIR}" ]]; then
-      error "Projects directory missing: ${PROJECTS_DIR}"
       error "Run './update-ai-clis.sh init' from setupScript directory first."
       exit 1
     fi
@@ -853,20 +964,22 @@ Main baseline (`base.json`) is intentionally locked.
 
 - `base.json`: Global baseline (required, locked)
 - `base.lock.sha256`: Lock hash for `base.json`
-- `projects/<name>.json`: Project overlay (optional)
+- `projects/<name>.json`: Legacy project overlay (optional, backward compatibility)
 - `local.json`: Machine-local overlay (optional, do not commit)
-- `.ai-stack.local.json`: Folder-local overlay (optional, do not commit)
+- `<project>/.ai-stack.local.json`: Project-local overlay (optional, can commit)
+- `<project>/.ai-stack.instructions.md`: Project-local instructions (optional, can commit)
 
 ## Priority
 
-`base.json` < `projects/<name>.json` < `local.json` < `.ai-stack.local.json`
+`base.json` < `projects/<name>.json` < `local.json` < `<project>/.ai-stack.local.json`
 
 ## Recommended workflow
 
 1. Keep `base.json` as stable minimal baseline.
-2. Add project-specific features in `projects/<name>.json`.
-3. Keep secrets/path overrides in `local.json` or `.ai-stack.local.json`.
-4. Run `./update-ai-clis.sh sync <name>`.
+2. Add project-specific features in `<project>/.ai-stack.local.json`.
+3. Keep machine-specific secrets/path overrides in `local.json`.
+4. Run `./update-ai-clis.sh sync-here` in each project folder.
+5. Use `projects/<name>.json` only when you need legacy compatibility.
 
 If you intentionally update `base.json`, run:
 
@@ -895,45 +1008,24 @@ project_init() {
   fi
 
   local project_dir
-  local project_name
-  local project_overlay
   local folder_overlay
   local gitignore
 
   project_dir="$(resolve_abs_path "${raw_project_dir}")"
   assert_not_setupscript_dir "${project_dir}"
-  project_name="$(basename "${project_dir}")"
-  project_overlay="${PROJECTS_DIR}/${project_name}.json"
-  folder_overlay="${project_dir}/.ai-stack.local.json"
+  folder_overlay="${project_dir}/${PROJECT_LOCAL_FILE_NAME}"
   gitignore="${project_dir}/.gitignore"
 
-  if [[ -f "${project_overlay}" ]]; then
-    info "Project overlay already exists: ${project_overlay}"
-  else
-    node - "${project_overlay}" "${project_dir}" <<'NODE'
-const fs = require("fs");
-const outPath = process.argv[2];
-const projectDir = process.argv[3];
-const json = {
-  projects: {
-    [projectDir]: []
-  },
-  servers: {}
-};
-fs.writeFileSync(outPath, JSON.stringify(json, null, 2) + "\n");
-NODE
-    info "Created project overlay: ${project_overlay}"
-  fi
-
   if [[ -f "${folder_overlay}" ]]; then
-    info "Folder local overlay exists: ${folder_overlay}"
+    info "Project local config exists: ${folder_overlay}"
   else
     cat > "${folder_overlay}" <<'EOF_LOCAL'
 {
+  "projectServers": [],
   "servers": {}
 }
 EOF_LOCAL
-    info "Created folder local overlay: ${folder_overlay}"
+    info "Created project local config: ${folder_overlay}"
   fi
 
   local backlog="${project_dir}/BACKLOG.md"
@@ -961,18 +1053,15 @@ EOF_BACKLOG
     info "Created BACKLOG.md: ${backlog}"
   fi
 
-  if [[ -f "${gitignore}" ]]; then
-    if ! has_exact_line ".ai-stack.local.json" "${gitignore}"; then
-      echo ".ai-stack.local.json" >> "${gitignore}"
-      info "Updated .gitignore: ${gitignore}"
-    fi
-  else
-    echo ".ai-stack.local.json" > "${gitignore}"
-    info "Created .gitignore: ${gitignore}"
+  if [[ -f "${gitignore}" ]] && has_exact_line "${PROJECT_LOCAL_FILE_NAME}" "${gitignore}"; then
+    warn "${gitignore} contains '${PROJECT_LOCAL_FILE_NAME}'."
+    warn "Remove that line if you want to commit project config."
   fi
 
   ACTIVE_PROJECT_REF="${project_dir}"
-  sync_all
+  info "Project files initialized. User configs under ~/ are unchanged."
+  preview_sync_diff
+  warn "Run 'promote-here' in the project directory when you want to apply this project to user configs."
 }
 
 build_effective_registry() {
@@ -984,30 +1073,48 @@ build_effective_registry() {
   ACTIVE_PROJECT_REF="${project_ref}"
 
   local project_file=""
-  local folder_local_file="${PWD}/.ai-stack.local.json"
+  local folder_local_file=""
+  local folder_local_project_path=""
+  local pwd_abs
+  pwd_abs="$(pwd -P)"
+  folder_local_file="${pwd_abs}/${PROJECT_LOCAL_FILE_NAME}"
+  folder_local_project_path="${pwd_abs}"
 
   if [[ -n "${project_ref}" ]]; then
     if [[ -f "${project_ref}" ]]; then
-      project_file="${project_ref}"
-      folder_local_file="$(dirname "${project_ref}")/.ai-stack.local.json"
-    elif [[ -f "${PROJECTS_DIR}/${project_ref}.json" ]]; then
-      project_file="${PROJECTS_DIR}/${project_ref}.json"
+      local abs_ref=""
+      abs_ref="$(resolve_abs_path "${project_ref}")"
+      if [[ "$(basename "${abs_ref}")" == "${PROJECT_LOCAL_FILE_NAME}" ]]; then
+        folder_local_file="${abs_ref}"
+        folder_local_project_path="$(dirname "${abs_ref}")"
+        ACTIVE_PROJECT_REF="${folder_local_project_path}"
+      else
+        project_file="${abs_ref}"
+        folder_local_project_path="$(dirname "${abs_ref}")"
+        folder_local_file="${folder_local_project_path}/${PROJECT_LOCAL_FILE_NAME}"
+      fi
     elif [[ -d "${project_ref}" ]]; then
-      local name
-      name="$(basename "${project_ref}")"
+      local project_dir_abs=""
+      local name=""
+      project_dir_abs="$(resolve_abs_path "${project_ref}")"
+      folder_local_project_path="${project_dir_abs}"
+      folder_local_file="${project_dir_abs}/${PROJECT_LOCAL_FILE_NAME}"
+      ACTIVE_PROJECT_REF="${project_dir_abs}"
+      name="$(basename "${project_dir_abs}")"
       if [[ -f "${PROJECTS_DIR}/${name}.json" ]]; then
         project_file="${PROJECTS_DIR}/${name}.json"
       fi
-      folder_local_file="${project_ref}/.ai-stack.local.json"
+    elif [[ -f "${PROJECTS_DIR}/${project_ref}.json" ]]; then
+      project_file="${PROJECTS_DIR}/${project_ref}.json"
     else
-      warn "Project overlay not found for '${project_ref}'. Using Global config only."
+      warn "Project overlay not found for '${project_ref}'. Using Global/local config only."
     fi
   fi
 
   cleanup_effective_registry
   EFFECTIVE_REGISTRY="$(mktemp)"
 
-EFFECTIVE_LAYERS="$(node - "${BASE_REGISTRY_FILE}" "${project_file}" "${GLOBAL_LOCAL_FILE}" "${folder_local_file}" "${EFFECTIVE_REGISTRY}" "${project_ref}" <<'NODE'
+EFFECTIVE_LAYERS="$(node - "${BASE_REGISTRY_FILE}" "${project_file}" "${GLOBAL_LOCAL_FILE}" "${folder_local_file}" "${EFFECTIVE_REGISTRY}" "${project_ref}" "${folder_local_project_path}" <<'NODE'
 const fs = require("fs");
 
 const basePath = process.argv[2];
@@ -1016,6 +1123,7 @@ const globalLocalPath = process.argv[4];
 const folderLocalPath = process.argv[5];
 const outPath = process.argv[6];
 const projectRef = process.argv[7] || "";
+const folderLocalProjectPath = process.argv[8] || "";
 
 function existsFile(p) {
   return typeof p === "string" && p.length > 0 && fs.existsSync(p) && fs.statSync(p).isFile();
@@ -1023,6 +1131,13 @@ function existsFile(p) {
 
 function isObject(v) {
   return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
+function toStringArray(v) {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((x) => String(x).trim())
+    .filter((x) => x.length > 0);
 }
 
 function mergeDeep(base, overlay) {
@@ -1080,6 +1195,15 @@ try {
   if (!isObject(merged.projects)) merged.projects = {};
   if (!isObject(merged.uninstall)) merged.uninstall = {};
   if (!isObject(merged.global)) merged.global = {};
+
+  if ("projectServers" in merged && !Array.isArray(merged.projectServers)) {
+    throw new Error("projectServers must be an array of server names.");
+  }
+  const projectServers = toStringArray(merged.projectServers);
+  if (projectServers.length > 0 && folderLocalProjectPath.length > 0) {
+    merged.projects[folderLocalProjectPath] = projectServers;
+  }
+  delete merged.projectServers;
 
   merged._meta = {
     generatedAt: new Date().toISOString(),
@@ -1877,6 +2001,53 @@ reset_all() {
   info "Backup snapshot: ${BACKUP_DIR}"
 }
 
+wipe_user_settings() {
+  local targets=(
+    "${HOME}/.claude.json"
+    "${HOME}/.claude/settings.json"
+    "${HOME}/.claude/CLAUDE.md"
+    "${HOME}/.claude/skills"
+    "${HOME}/.codex/config.toml"
+    "${HOME}/.codex/AGENTS.md"
+    "${HOME}/.codex/skills"
+    "${HOME}/.gemini/settings.json"
+    "${HOME}/.gemini/mcp.managed.json"
+    "${HOME}/.gemini/GEMINI.md"
+    "${HOME}/.gemini/skills"
+  )
+
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    info "Dry-run: would remove user settings:"
+    local t=""
+    for t in "${targets[@]}"; do
+      printf "  - %s\n" "${t}"
+    done
+    return 0
+  fi
+
+  local t=""
+  for t in "${targets[@]}"; do
+    if [[ -e "${t}" ]]; then
+      rm -rf "${t}"
+    fi
+  done
+
+  rmdir "${HOME}/.claude" 2>/dev/null || true
+  rmdir "${HOME}/.codex" 2>/dev/null || true
+  rmdir "${HOME}/.gemini" 2>/dev/null || true
+
+  info "Wiped user settings under ~/.claude ~/.codex ~/.gemini"
+}
+
+reset_user_from_git() {
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    preview_sync_diff
+    return 0
+  fi
+  ACTIVE_PROJECT_REF=""
+  sync_all
+}
+
 status() {
   ensure_node
   build_effective_registry "${ACTIVE_PROJECT_REF}"
@@ -1990,8 +2161,24 @@ NODE
     local layers_info="${instr_hash}"
     if [[ -n "${ACTIVE_PROJECT_REF}" ]]; then
       local _pn=""
-      if [[ -d "${ACTIVE_PROJECT_REF}" ]]; then _pn="$(basename "${ACTIVE_PROJECT_REF}")"; else _pn="${ACTIVE_PROJECT_REF}"; fi
-      if [[ -f "${PROJECTS_DIR}/${_pn}.instructions.md" ]]; then
+      local _pd=""
+      if [[ -d "${ACTIVE_PROJECT_REF}" ]]; then
+        _pd="$(resolve_abs_path "${ACTIVE_PROJECT_REF}")"
+        _pn="$(basename "${_pd}")"
+      elif [[ -f "${ACTIVE_PROJECT_REF}" ]]; then
+        _pd="$(dirname "$(resolve_abs_path "${ACTIVE_PROJECT_REF}")")"
+        if [[ "$(basename "${ACTIVE_PROJECT_REF}")" == *.json ]]; then
+          _pn="$(basename "${ACTIVE_PROJECT_REF}" .json)"
+        else
+          _pn="$(basename "${_pd}")"
+        fi
+      else
+        _pn="${ACTIVE_PROJECT_REF}"
+      fi
+      if [[ -n "${_pn}" && -f "${PROJECTS_DIR}/${_pn}.instructions.md" ]]; then
+        layers_info="${layers_info}+project-legacy"
+      fi
+      if [[ -n "${_pd}" && -f "${_pd}/${PROJECT_LOCAL_INSTRUCTIONS_FILE_NAME}" ]]; then
         layers_info="${layers_info}+project"
       fi
     fi
@@ -2002,6 +2189,8 @@ NODE
   else
     printf "  %-24s %s\n" "Global instructions:" "not configured"
   fi
+
+  print_sync_drift_status
 }
 
 check_drift() {
@@ -2127,6 +2316,76 @@ show_diff_for_file() {
   diff -u --label "${label} (current)" --label "${label} (next)" "${left}" "${right}" || true
 }
 
+file_pair_different() {
+  local left="$1"
+  local right="$2"
+
+  if [[ ! -e "${left}" && ! -e "${right}" ]]; then
+    return 1
+  fi
+  if [[ ! -e "${left}" || ! -e "${right}" ]]; then
+    return 0
+  fi
+  if cmp -s "${left}" "${right}"; then
+    return 1
+  fi
+  return 0
+}
+
+build_sync_preview_snapshot() {
+  local preview_root="$1"
+
+  local original_claude_json="${CLAUDE_JSON}"
+  local original_claude_settings="${CLAUDE_SETTINGS}"
+  local original_codex_toml="${CODEX_TOML}"
+  local original_gemini_settings="${GEMINI_SETTINGS}"
+  local original_gemini_manifest="${GEMINI_MCP_MANAGED}"
+
+  local CLAUDE_JSON="${preview_root}/.claude.json"
+  local CLAUDE_SETTINGS="${preview_root}/.claude/settings.json"
+  local CODEX_TOML="${preview_root}/.codex/config.toml"
+  local GEMINI_SETTINGS="${preview_root}/.gemini/settings.json"
+  local GEMINI_MCP_MANAGED="${preview_root}/.gemini/mcp.managed.json"
+  local BACKUP_DIR="${preview_root}/backups"
+  local DRY_RUN=1
+
+  seed_preview_file "${original_claude_json}" "${CLAUDE_JSON}"
+  seed_preview_file "${original_claude_settings}" "${CLAUDE_SETTINGS}"
+  seed_preview_file "${original_codex_toml}" "${CODEX_TOML}"
+  seed_preview_file "${original_gemini_settings}" "${GEMINI_SETTINGS}"
+  seed_preview_file "${original_gemini_manifest}" "${GEMINI_MCP_MANAGED}"
+
+  sync_all >/dev/null
+}
+
+print_sync_drift_status() {
+  local preview_root
+  preview_root="$(mktemp -d)"
+  build_sync_preview_snapshot "${preview_root}"
+
+  local claude_state="in-sync"
+  local codex_state="in-sync"
+  local gemini_state="in-sync"
+
+  if file_pair_different "${CLAUDE_JSON}" "${preview_root}/.claude.json" || \
+     file_pair_different "${CLAUDE_SETTINGS}" "${preview_root}/.claude/settings.json"; then
+    claude_state="diff"
+  fi
+  if file_pair_different "${CODEX_TOML}" "${preview_root}/.codex/config.toml"; then
+    codex_state="diff"
+  fi
+  if file_pair_different "${GEMINI_SETTINGS}" "${preview_root}/.gemini/settings.json" || \
+     file_pair_different "${GEMINI_MCP_MANAGED}" "${preview_root}/.gemini/mcp.managed.json"; then
+    gemini_state="diff"
+  fi
+
+  printf "  %-24s %s\n" "Drift Claude:" "${claude_state}"
+  printf "  %-24s %s\n" "Drift Codex:" "${codex_state}"
+  printf "  %-24s %s\n" "Drift Gemini:" "${gemini_state}"
+
+  rm -rf "${preview_root}"
+}
+
 preview_sync_diff() {
   local preview_root
   preview_root="$(mktemp -d)"
@@ -2232,6 +2491,7 @@ main() {
     init)
       assert_setupscript_dir
       bootstrap_config_files "create"
+      reset_user_from_git
       ;;
     lock-base)
       assert_setupscript_dir
@@ -2249,11 +2509,31 @@ main() {
     sync)
       if [[ "${DRY_RUN}" -eq 1 ]]; then
         preview_sync_diff
+      elif is_project_context; then
+        warn_promote_required
+        preview_sync_diff
       else
         sync_all
       fi
       ;;
     sync-here)
+      assert_not_setupscript_dir "${PWD}"
+      ACTIVE_PROJECT_REF="${PWD}"
+      if [[ "${DRY_RUN}" -eq 1 ]]; then
+        preview_sync_diff
+      else
+        warn_promote_required
+        preview_sync_diff
+      fi
+      ;;
+    promote)
+      if [[ "${DRY_RUN}" -eq 1 ]]; then
+        preview_sync_diff
+      else
+        sync_all
+      fi
+      ;;
+    promote-here)
       assert_not_setupscript_dir "${PWD}"
       ACTIVE_PROJECT_REF="${PWD}"
       if [[ "${DRY_RUN}" -eq 1 ]]; then
@@ -2288,7 +2568,12 @@ main() {
       else
         update_clis
         divider
-        sync_all
+        if is_project_context; then
+          warn_promote_required
+          preview_sync_diff
+        else
+          sync_all
+        fi
       fi
       ;;
     all-here)
@@ -2303,7 +2588,8 @@ main() {
       else
         update_clis
         divider
-        sync_all
+        warn_promote_required
+        preview_sync_diff
       fi
       ;;
     status)
@@ -2323,8 +2609,20 @@ main() {
     skill-share)
       skill_share "${project_ref}"
       ;;
+    skill-promote)
+      skill_promote "${project_ref}"
+      ;;
     skill-share-all)
       skill_share_all "${project_ref}"
+      ;;
+    wipe-user)
+      wipe_user_settings
+      ;;
+    reset-user)
+      assert_setupscript_dir
+      bootstrap_config_files "verify"
+      validate_base_locked
+      reset_user_from_git
       ;;
     -h|--help|help)
       usage
