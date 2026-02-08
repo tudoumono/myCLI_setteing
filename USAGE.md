@@ -99,8 +99,14 @@ cd /root/mywork/my-new-project
 ## project-init の副作用
 
 - `<project>/.ai-stack.local.json` の雛形を作成します。
+- `<project>/BACKLOG.md` の雛形を作成します。
 - `.gitignore` に `.ai-stack.local.json` が無ければ追記します。
 - 実行後、そのまま `sync` を実行します。
+
+`BACKLOG.md` の用途:
+- 条件付きで将来実施する案を記録するためのファイルです。
+- 各項目は「トリガー条件（いつ再検討するか）」を持たせる運用を推奨します。
+- 設定配布対象ではないため、`sync/reset` でCLI側へはコピーされません。
 
 ## Skills共通化
 

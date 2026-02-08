@@ -50,6 +50,10 @@ cd /path/to/my-project
 /path/to/setupScript/update-ai-clis.sh sync-here
 ```
 
+`project-init` では以下も自動作成されます:
+- `.ai-stack.local.json`（フォルダ固有設定）
+- `BACKLOG.md`（条件付きで後でやる案の管理）
+
 ### 3) 変更内容を先に確認
 
 ```bash
@@ -68,11 +72,24 @@ cd /path/to/my-project
 - `diff`: `sync` した場合の差分プレビュー
 - `all`: `update` + `sync`
 
+## 学びの扱い（kb と skill）
+
+- `kb` 更新はラフに速く進める
+  - `kb-candidate`: 事実・手順・知見の追記候補
+  - 承認後は `sync-knowledge` フローで更新
+- `skill` 更新は精査して進める
+  - `skill-candidate`: 繰り返す作業フローの候補
+  - 承認は草案作成まで。最終反映は再承認
+- 1セッションあたりの提案上限
+  - `kb-candidate` 最大1件
+  - `skill-candidate` 最大1件
+
 ## 初見でハマりやすい点
 
 - 引数なしで `./update-ai-clis.sh` を実行すると `update` が走ります。
 - `sync/reset/diff/check/status` で `[project]` を省略した場合、フォルダローカル設定は `実行中ディレクトリ/.ai-stack.local.json` が使われます。
 - `check` は skills と global instructions の整合確認が対象です。MCP設定ファイル全体は比較しません。
+- `BACKLOG.md` は運用メモ用で、`sync/reset` でCLIに配布される設定ファイルではありません。
 
 ## どのドキュメントを読むべきか
 

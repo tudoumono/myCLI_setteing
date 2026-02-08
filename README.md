@@ -25,7 +25,7 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 - グローバル指示配布（`ai-config/global-instructions.md` を各CLIへ配布）
 - ベースロック更新（lock-base）
 - PJ初期化（project-init）
-  - `.ai-stack.local.json` 雛形と `.gitignore` 追記を自動化
+  - `.ai-stack.local.json` 雛形、`BACKLOG.md` 雛形、`.gitignore` 追記を自動化
 - PJフォルダ基準の簡易実行（sync-here/status-here/reset-here/all-here）
 - ヘルプ表示（`help` / `--help` / `-h`）
 
@@ -39,7 +39,9 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 - `ai-config/local.json`: マシン固有差分（任意）
 - `ai-config/skills/`: スキル共通化のマスター（配布元）
 - `ai-config/global-instructions.md`: グローバル指示マスター（存在時のみ配布）
+- `ai-config/BACKLOG.md`: setupScript 運用の保留アイデアと再検討トリガー
 - `<project>/.ai-stack.local.json`: フォルダ固有差分（任意）
+- `<project>/BACKLOG.md`: プロジェクト側の保留アイデア管理（`project-init` で雛形生成）
 
 ## 実行場所の推奨
 
@@ -52,6 +54,7 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 注意:
 - `sync/reset/diff/check/status` で `[project]` を省略すると、フォルダローカルレイヤーは「実行中ディレクトリ」の `.ai-stack.local.json` が使われます。
 - `sync my-project` を別フォルダから実行すると、その別フォルダ側の `.ai-stack.local.json` がレイヤーに入ります。
+- `BACKLOG.md` は運用メモ用で、CLI設定へは配布されません。
 
 ## 重要ポリシー
 
@@ -59,6 +62,16 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 - 追加機能は `projects/*.json` で管理
 - `sync/reset/status` は `base.json` 改変を検知したら停止
 - 意図的な改変時のみ `lock-base` でハッシュ更新
+
+## 学びの更新方針（kb と skill）
+
+- `kb-*` は知識蓄積レーン（高速更新）
+  - 事実・手順・知見の追記を優先
+  - 承認後は `sync-knowledge` で反映
+- `skill` はワークフローレーン（精査更新）
+  - 承認時点は「草案作成許可」
+  - 最終反映前に再承認する運用
+- `skill-discovery` の提案上限は 1セッションで `kb-candidate` 1件 + `skill-candidate` 1件
 
 ## WebSearchと言語
 

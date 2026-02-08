@@ -1,6 +1,6 @@
 ---
 name: skill-discovery
-description: 作業完了時に再利用可能なパターンを自動検知し、既存スキルとの重複確認後に候補を1件だけ提案する。承認後のみナレッジ更新フローへ接続する。
+description: 作業完了時に再利用可能なパターンを検知し、kb-candidate（高速）とskill-candidate（精査）を分けて提案する。承認後のみ更新フローへ接続する。
 user-invocable: true
 ---
 
@@ -11,7 +11,8 @@ user-invocable: true
 ## 目的
 
 - 学びの検知を人間依存から減らす
-- 既存の知識更新フロー（`sync-knowledge` / `kb-project-authoring`）へ安全に接続する
+- `kb-*` と `skill` を異なる審査強度で運用する
+- 既存の更新フロー（`sync-knowledge` / `kb-project-authoring`）へ安全に接続する
 - 提案ノイズを抑える
 
 ## 実行タイミング
@@ -22,10 +23,11 @@ user-invocable: true
 ## ガードレール
 
 1. 作業途中で割り込まない。候補提案は最後に行う。
-2. 1セッション（`/clear` まで）で提案は最大1件。
+2. 1セッション（`/clear` まで）で提案上限は `kb-candidate` 1件 + `skill-candidate` 1件（合計最大2件）。
 3. 低信頼（根拠が弱い）なら提案しない。
 4. ユーザー承認なしで `kb-*` を更新しない。
-5. CLI固有のスラッシュコマンドに依存しない。
+5. `skill-candidate` は承認されても即反映しない。承認は「草案作成許可」として扱う。
+6. CLI固有のスラッシュコマンドに依存しない。
 
 ## 検知基準（高信頼の目安）
 
@@ -39,6 +41,12 @@ user-invocable: true
 補足:
 - コンパクションで「同一セッション内の複数回実施」が判定しづらい場合は、他の基準を優先して判断する。
 
+## 振り分け基準
+
+- 「事実・手順・知見」の追記が主目的: `kb-candidate`（既存 `kb-*` へ追加）
+- 「繰り返す作業フロー」の定義が主目的: `skill-candidate`（新規または既存スキル改善）
+- 迷う場合は `kb-candidate` を優先する
+
 ## 実行手順
 
 1. **候補抽出**
@@ -46,22 +54,26 @@ user-invocable: true
    - 各候補に「症状/原因/手順/検証」を1行ずつメモ
 
 2. **重複チェック**
-   - `{{SKILLS_DIR}}/kb-*/SKILL.md` を確認し、同等内容が既にないか確認
+   - `kb-candidate` は `{{SKILLS_DIR}}/kb-*/SKILL.md` を確認し、同等内容が既にないか確認
+   - `skill-candidate` は `{{SKILLS_DIR}}/*/SKILL.md` を確認し、同等フローの既存スキルがないか確認
    - 同等内容がある候補は破棄
 
-3. **候補の絞り込み**
-   - 残った候補から最も価値が高い1件のみ選ぶ
+3. **候補の絞り込みとレート制限**
+   - `kb-candidate` は最大1件、`skill-candidate` は最大1件まで選ぶ
    - 候補名は英小文字kebab-caseで命名
 
 4. **提案（1行）**
-   - 以下フォーマットで1行提案:
-   - `[skill-candidate] <name> | target: <existing kb-*> or <new kb-*> | reason: <再利用根拠>`
+   - `kb-candidate`:
+     - `[kb-candidate] <name> | target: <existing kb-*> | reason: <再利用根拠>`
+   - `skill-candidate`:
+     - `[skill-candidate] <name> | target: <new-skill or existing skill refinement> | reason: <再利用根拠>`
 
 5. **承認後の処理**
-   - 既存 `kb-*` へ追記する場合:
+   - `kb-candidate` が承認された場合:
      - `{{SKILLS_DIR}}/sync-knowledge/SKILL.md` の手順に従う
-   - 新規 `kb-*` を作る場合:
+   - `skill-candidate` が承認された場合:
      - `{{SKILLS_DIR}}/kb-project-authoring/SKILL.md` の手順に従う
+     - まず草案（構成・追記候補・差分方針）を提示し、最終反映前に再承認を取る
 
 6. **却下時の処理**
    - 却下された場合は何もしない
@@ -78,4 +90,4 @@ user-invocable: true
 
 必要なら、以下を提案してください:
 
-> 「今回の作業から再利用可能なスキル候補を1件提案できます。確認しますか？」
+> 「今回の作業から `kb-candidate` と `skill-candidate` をそれぞれ最大1件提案できます。確認しますか？」
