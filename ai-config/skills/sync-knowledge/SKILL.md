@@ -1,21 +1,21 @@
 ---
 name: sync-knowledge
-description: プロジェクトで得た学びをグローバルナレッジベース（~/.claude/skills/kb-*/）に反映する。新しい技術的知見やトラブルシューティング情報を蓄積
+description: プロジェクトで得た学びをグローバルナレッジベース（{{SKILLS_DIR}}/kb-*/）に反映する。新しい技術的知見やトラブルシューティング情報を蓄積
 user-invocable: true
 ---
 
 # ナレッジベース更新
 
-現在のプロジェクトで得た学びを `~/.claude/skills/` 配下のナレッジスキルに反映してください。
+現在のプロジェクトで得た学びを `{{SKILLS_DIR}}/` 配下のナレッジスキルに反映してください。
 
 ## 対象スキル
 
 | スキル | ファイル | 内容 |
 |--------|---------|------|
-| `kb-strands-agentcore` | `skill.md` | Strands Agents + Bedrock AgentCore |
-| `kb-amplify-cdk` | `skill.md` | Amplify Gen2 + CDK統合 |
-| `kb-frontend` | `skill.md` | React、Tailwind、フロントエンド |
-| `kb-troubleshooting` | `skill.md` | 遭遇した問題と解決策 |
+| `kb-strands-agentcore` | `SKILL.md` | Strands Agents + Bedrock AgentCore |
+| `kb-amplify-cdk` | `SKILL.md` | Amplify Gen2 + CDK統合 |
+| `kb-frontend` | `SKILL.md` | React、Tailwind、フロントエンド |
+| `kb-troubleshooting` | `SKILL.md` | 遭遇した問題と解決策 |
 
 ## 実行手順
 
@@ -31,7 +31,7 @@ user-invocable: true
    - トラブルシューティング → `kb-troubleshooting`
 
 3. **ナレッジスキルを更新**
-   - `~/.claude/skills/kb-*/skill.md` を読み込み
+   - `{{SKILLS_DIR}}/kb-*/SKILL.md` を読み込み
    - プロジェクト固有でない汎用的な学びを追記
    - コード例や具体的な解決策を含める
 
@@ -47,6 +47,6 @@ user-invocable: true
 
 ## 次のステップ
 
-ナレッジベースを更新したら、GitHubへの同期も提案してください：
+ナレッジベースを更新したら、必要に応じて設定リポジトリへの同期も提案してください：
 
-> 「ナレッジベースを更新しました。GitHubにもプッシュしておく？（`/sync-settings` で同期できるよ）」
+> 「ナレッジベースを更新しました。設定リポジトリにも同期しますか？」
