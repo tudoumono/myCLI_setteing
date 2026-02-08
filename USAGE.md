@@ -1,4 +1,4 @@
-# USAGE
+# 使い方
 
 `update-ai-clis.sh` は Claude/Codex/Gemini の共通ベース設定を同期・リセットするスクリプトです。
 初回導入は `START_HERE.md` を参照してください。

@@ -45,7 +45,7 @@ divider() { printf '%s\n' "------------------------------------------"; }
 
 usage() {
   cat <<'USAGE_EOF'
-Usage:
+使い方:
   ./update-ai-clis.sh init
   ./update-ai-clis.sh lock-base
   ./update-ai-clis.sh project-init [project_dir]
@@ -67,28 +67,28 @@ Usage:
   ./update-ai-clis.sh <sync|reset|all> [project] --dry-run
   ./update-ai-clis.sh <sync-here|reset-here|all-here> --dry-run
 
-Commands:
-  init    Create baseline files under ai-config/. (run from setupScript directory only)
-  lock-base  Refresh and lock base.json hash (for intentional base update only; run from setupScript directory only).
-  project-init  Initialize per-project overlay from current directory (or given path) and run sync.
-  update  Update Claude/Gemini/Codex CLIs via npm.
-  sync    Apply unified config (Global + Project + Folder local overlay).
-  sync-here  Apply sync with project = current directory.
-  reset   Reset to baseline (clear MCP config + uninstall registered MCP packages).
-  reset-here  Reset using project = current directory.
-  all     Run update then sync.
-  all-here  Run update then sync with project = current directory.
-  diff    Show what `sync` would change without writing real files.
-  check   Verify master matches deployed state; exit non-zero on drift (CI-friendly).
-  status  Show versions and effective configuration status.
-  status-here  Show status with project = current directory.
-  --dry-run  Preview actions for update/sync/reset/all (including *-here) without applying.
+コマンド説明:
+  init    ai-config/ 配下のベースファイルを作成します（setupScript フォルダでのみ実行可能）。
+  lock-base  base.json のハッシュロックを更新します（意図したベース更新時のみ。setupScript フォルダでのみ実行可能）。
+  project-init  現在ディレクトリ（または指定パス）のプロジェクト用オーバーレイを初期化し、sync を実行します。
+  update  Claude/Gemini/Codex CLI を npm 経由で更新します。
+  sync    統合設定を適用します（Global + Project + Folder local レイヤー）。
+  sync-here  project = 現在ディレクトリとして sync を実行します。
+  reset   ベース状態へ戻します（MCP設定のクリア + 登録済みMCPパッケージのアンインストール）。
+  reset-here  project = 現在ディレクトリとして reset を実行します。
+  all     update の後に sync を実行します。
+  all-here  project = 現在ディレクトリとして all を実行します。
+  diff    sync 実行時にどう変わるかを実ファイル変更なしで表示します。
+  check   skills と global instructions のドリフトを検査し、不一致時は非0で終了します（CI向け）。
+  status  バージョン情報と有効設定状態を表示します。
+  status-here  project = 現在ディレクトリとして status を表示します。
+  --dry-run  update/sync/reset/all（*-here 含む）を実変更なしでプレビューします。
 
-Layer order (later overrides earlier):
-  1) ai-config/base.json               (Global)
-  2) ai-config/projects/<project>.json (Project, optional)
-  3) ai-config/local.json              (Machine local, optional)
-  4) ./.ai-stack.local.json            (Folder local, optional)
+レイヤー優先順（後ろほど優先）:
+  1) ai-config/base.json               （Global）
+  2) ai-config/projects/<project>.json （Project、任意）
+  3) ai-config/local.json              （Machine local、任意）
+  4) ./.ai-stack.local.json            （Folder local、任意）
 USAGE_EOF
 }
 
