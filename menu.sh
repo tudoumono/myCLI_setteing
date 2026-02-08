@@ -6,16 +6,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MAIN_SCRIPT="${SCRIPT_DIR}/update-ai-clis.sh"
 START_PWD="$(pwd -P)"
 LAST_PROJECT_DIR=""
-
-USE_WHIPTAIL=0
-if command -v whiptail >/dev/null 2>&1 && [[ -t 0 && -t 1 ]]; then
-  USE_WHIPTAIL=1
-fi
-
-WT_HEIGHT=24
-WT_WIDTH=100
-WT_MAIN_MENU_HEIGHT=12
-WT_ADV_MENU_HEIGHT=18
 INTRO_SHOWN=0
 
 if [[ ! -x "${MAIN_SCRIPT}" ]]; then
@@ -26,40 +16,28 @@ fi
 ui_message() {
   local title="$1"
   local message="$2"
-  if [[ "${USE_WHIPTAIL}" -eq 1 ]]; then
-    whiptail --title "${title}" --msgbox "${message}" 14 "${WT_WIDTH}"
-  else
-    echo
-    echo "== ${title} =="
-    echo "${message}"
-  fi
+  echo >&2
+  echo "== ${title} ==" >&2
+  printf '%b\n' "${message}" >&2
 }
 
-pause_if_text_mode() {
-  if [[ "${USE_WHIPTAIL}" -eq 0 ]]; then
-    read -r -p $'\nEnterで続行します...' _
-  fi
+pause_prompt() {
+  read -r -p $'\nEnterで続行します...' _
 }
 
 ui_confirm() {
   local message="$1"
   local default="${2:-N}"
   local answer=""
-
-  if [[ "${USE_WHIPTAIL}" -eq 1 ]]; then
-    local opt=()
-    if [[ "${default}" != "Y" ]]; then
-      opt+=(--defaultno)
-    fi
-    whiptail --title "確認" "${opt[@]}" --yesno "${message}" 14 "${WT_WIDTH}"
-    return $?
-  fi
+  local prompt=""
 
   if [[ "${default}" == "Y" ]]; then
-    read -r -p "${message} [Y/n]: " answer
+    prompt="$(printf '%b' "${message}") [Y/n]: "
+    read -r -p "${prompt}" answer
     answer="${answer:-Y}"
   else
-    read -r -p "${message} [y/N]: " answer
+    prompt="$(printf '%b' "${message}") [y/N]: "
+    read -r -p "${prompt}" answer
     answer="${answer:-N}"
   fi
   case "${answer}" in
@@ -74,17 +52,11 @@ ui_input() {
   local default="${3:-}"
   local value=""
 
-  if [[ "${USE_WHIPTAIL}" -eq 1 ]]; then
-    if ! value="$(whiptail --title "${title}" --inputbox "${message}" 14 "${WT_WIDTH}" "${default}" 3>&1 1>&2 2>&3)"; then
-      return 1
-    fi
+  if [[ -n "${default}" ]]; then
+    read -r -p "${message} (空なら ${default}): " value || return 1
+    value="${value:-${default}}"
   else
-    if [[ -n "${default}" ]]; then
-      read -r -p "${message} (空なら ${default}): " value || return 1
-      value="${value:-${default}}"
-    else
-      read -r -p "${message}: " value || return 1
-    fi
+    read -r -p "${message}: " value || return 1
   fi
 
   printf "%s\n" "${value}"
@@ -185,19 +157,7 @@ show_intro_once() {
   fi
   INTRO_SHOWN=1
 
-  if [[ "${USE_WHIPTAIL}" -eq 1 ]]; then
-    ui_message "AI CLI 設定メニュー" \
-"このメニューは Claude / Codex / Gemini の共通設定管理を、説明付きで実行するラッパーです。
-
-使い方の目安:
-1. 初回: project-init
-2. 日常: sync-here -> status-here
-3. 復旧: reset-here（必要なら --dry-run）
-4. 詳細操作: 日常メニューで a を選択
-
-UIモード: whiptail（Ubuntu標準のダイアログUI）"
-  else
-    cat <<'EOF_INTRO'
+  cat <<'EOF_INTRO'
 
 ========================================
  AI CLI 設定メニュー
@@ -210,11 +170,8 @@ UIモード: whiptail（Ubuntu標準のダイアログUI）"
   2. 日常: sync-here -> status-here
   3. 復旧: reset-here（必要なら --dry-run）
   4. 詳細操作: 日常メニューで a を選択
-
-UIモード: テキスト（whiptail 未導入のため）
 ========================================
 EOF_INTRO
-  fi
 }
 
 show_help_text() {
@@ -271,13 +228,13 @@ show_help_text() {
   先に対象PJディレクトリを入力する
 EOF_HELP
 
-  if [[ "${USE_WHIPTAIL}" -eq 1 ]]; then
-    whiptail --title "メニューガイド" --scrolltext --textbox "${help_file}" 28 104
-  else
-    echo
-    cat "${help_file}"
-  fi
+  echo
+  cat "${help_file}"
   rm -f "${help_file}"
+}
+
+strip_ansi() {
+  sed $'s/\x1b\\[[0-9;]*m//g'
 }
 
 run_update_ai() {
@@ -287,47 +244,63 @@ run_update_ai() {
   local rc=0
   quoted="$(printf "%q " "$@")"
 
-  if [[ "${USE_WHIPTAIL}" -eq 1 ]]; then
-    local log_file=""
-    local title=""
-    log_file="$(mktemp)"
-    {
-      echo "[RUN] (cd ${workdir} && ./update-ai-clis.sh ${quoted})"
-      echo
-      (
-        cd "${workdir}" >/dev/null 2>&1
-        "${MAIN_SCRIPT}" "$@"
-      )
-    } >"${log_file}" 2>&1
-    rc=$?
+  local log_file=""
+  log_file="$(mktemp)"
 
-    if [[ "${rc}" -eq 0 ]]; then
-      echo "" >>"${log_file}"
-      echo "[OK] 正常終了" >>"${log_file}"
-      title="実行結果: 成功"
-    else
-      echo "" >>"${log_file}"
-      echo "[ERROR] 終了コード: ${rc}" >>"${log_file}"
-      title="実行結果: 失敗"
-    fi
+  # ログヘッダー書き込み
+  echo "[RUN] (cd ${workdir} && ./update-ai-clis.sh ${quoted})" >"${log_file}"
+  echo "" >>"${log_file}"
 
-    whiptail --title "${title}" --scrolltext --textbox "${log_file}" 28 104
-    rm -f "${log_file}"
-    return "${rc}"
-  fi
-
-  echo
-  echo "[RUN] (cd ${workdir} && ./update-ai-clis.sh ${quoted})"
+  # コマンドをバックグラウンド実行（stdin遮断で read 競合を防止）
   (
     cd "${workdir}" >/dev/null 2>&1
     "${MAIN_SCRIPT}" "$@"
-  )
+  ) >>"${log_file}" 2>&1 </dev/null &
+  local pid=$!
+
+  # --- ASCII プログレスバー ---
+  echo
+  echo ">> 実行中: ${quoted}"
+
+  local pct=0
+  local status_line=""
+  local bar=""
+  local bar_width=30
+  local filled=0
+  local empty=0
+
+  while kill -0 "${pid}" 2>/dev/null; do
+    status_line="$(tail -n 1 "${log_file}" 2>/dev/null | strip_ansi | cut -c 1-20)"
+    if [[ "${pct}" -lt 90 ]]; then
+      pct=$((pct + 1))
+    fi
+    filled=$((pct * bar_width / 100))
+    empty=$((bar_width - filled))
+    bar=""
+    for ((i = 0; i < filled; i++)); do bar+="#"; done
+    for ((i = 0; i < empty; i++)); do bar+="-"; done
+    printf "\r[%s] %3d%% %-24s" "${bar}" "${pct}" "${status_line:-実行中...}"
+    sleep 0.3
+  done
+
+  # 完了表示
+  bar=""
+  for ((i = 0; i < bar_width; i++)); do bar+="#"; done
+  printf "\r[%s] 100%% %-24s\n" "${bar}" "完了"
+
+  wait "${pid}" 2>/dev/null
   rc=$?
+
+  echo ""
+  cat "${log_file}"
+
   if [[ "${rc}" -eq 0 ]]; then
     echo "[OK] 正常終了"
   else
     echo "[ERROR] 終了コード: ${rc}"
   fi
+
+  rm -f "${log_file}"
   return "${rc}"
 }
 
@@ -496,29 +469,6 @@ EOF_MENU
 
 select_main_menu() {
   local choice=""
-
-  if [[ "${USE_WHIPTAIL}" -eq 1 ]]; then
-    if ! choice="$(whiptail \
-      --title "AI CLI 設定メニュー（日常）" \
-      --menu "普段はこのメニューだけ使えばOKです。" \
-      "${WT_HEIGHT}" "${WT_WIDTH}" "${WT_MAIN_MENU_HEIGHT}" \
-      "1"  "project-init: PJ初期化（初回）" \
-      "2"  "sync-here: 設定同期（推奨）" \
-      "3"  "status-here: 状態確認（推奨）" \
-      "4"  "diff [project]: 変更予定の確認" \
-      "5"  "reset-here: 復旧（注意）" \
-      "6"  "skill-share: ローカルスキル1件共有" \
-      "7"  "skill-share-all: ローカルスキル一括共有" \
-      "8"  "ガイド: 使い分けを表示" \
-      "a"  "詳細メニュー: 全コマンド表示" \
-      "q"  "終了" \
-      3>&1 1>&2 2>&3)"; then
-      return 1
-    fi
-    printf "%s\n" "${choice}"
-    return 0
-  fi
-
   print_main_menu_text >&2
   read -r -p "番号を選択してください: " choice || return 1
   printf "%s\n" "${choice}"
@@ -526,38 +476,6 @@ select_main_menu() {
 
 select_advanced_menu() {
   local choice=""
-
-  if [[ "${USE_WHIPTAIL}" -eq 1 ]]; then
-    if ! choice="$(whiptail \
-      --title "AI CLI 設定メニュー（詳細）" \
-      --menu "全コマンドを表示します。通常は日常メニューを推奨。" \
-      "${WT_HEIGHT}" "${WT_WIDTH}" "${WT_ADV_MENU_HEIGHT}" \
-      "1"  "init: 初回セットアップ（setupScript配下のみ）" \
-      "2"  "lock-base: base.json変更時のみロック更新" \
-      "3"  "update: CLI本体更新のみ" \
-      "4"  "sync [project]: 3CLIへ設定配布" \
-      "5"  "reset [project]: ベースへ戻す（注意）" \
-      "6"  "all [project]: update + sync" \
-      "7"  "diff [project]: 変更予定の確認" \
-      "8"  "check [project]: ドリフト検知（CI向け）" \
-      "9"  "status [project]: 現在状態の確認" \
-      "10" "project-init [dir]: PJ雛形作成+初回sync" \
-      "11" "sync-here: 指定PJディレクトリで同期" \
-      "12" "reset-here: 指定PJディレクトリでリセット" \
-      "13" "all-here: 指定PJディレクトリで update+sync" \
-      "14" "status-here: 指定PJディレクトリ状態表示" \
-      "15" "help: update-ai-clis.sh のヘルプ表示" \
-      "16" "skill-share: ローカルスキル1件を3CLIへ共有" \
-      "17" "skill-share-all: ローカルスキルを3CLIへ一括共有" \
-      "b"  "戻る" \
-      "q"  "終了" \
-      3>&1 1>&2 2>&3)"; then
-      return 1
-    fi
-    printf "%s\n" "${choice}"
-    return 0
-  fi
-
   print_advanced_menu_text >&2
   read -r -p "番号を選択してください: " choice || return 1
   printf "%s\n" "${choice}"
@@ -595,7 +513,7 @@ handle_advanced_menu() {
         ;;
     esac
 
-    pause_if_text_mode
+    pause_prompt
   done
 }
 
@@ -605,9 +523,6 @@ main() {
   while true; do
     local choice=""
     if ! choice="$(select_main_menu)"; then
-      if [[ "${USE_WHIPTAIL}" -eq 1 ]]; then
-        break
-      fi
       ui_message "終了" "入力を受け取れなかったため終了します。"
       break
     fi
@@ -632,12 +547,10 @@ main() {
         ;;
     esac
 
-    pause_if_text_mode
+    pause_prompt
   done
 
-  if [[ "${USE_WHIPTAIL}" -eq 0 ]]; then
-    echo "終了します。"
-  fi
+  echo "終了します。"
 }
 
 main "$@"
