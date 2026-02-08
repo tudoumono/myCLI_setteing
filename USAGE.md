@@ -19,12 +19,17 @@
 ./update-ai-clis.sh check [project]
 ./update-ai-clis.sh status [project]
 ./update-ai-clis.sh status-here
+./update-ai-clis.sh -h
+./update-ai-clis.sh help
+./update-ai-clis.sh --help
+./update-ai-clis.sh update --dry-run
 ./update-ai-clis.sh <sync|reset|all> [project] --dry-run
+./update-ai-clis.sh <sync-here|reset-here|all-here> --dry-run
 ```
 
 - `diff`: `sync` 相当の変更予定を表示
 - `check`: master と配布先を比較し、不一致なら非0終了（CI/cron向け）
-- `--dry-run`: `sync/reset/all` で実ファイル変更を行わず差分・実行内容だけ確認
+- `--dry-run`: `update/sync/reset/all`（`*-here` 含む）で実変更なしに実行内容のみ確認
 
 ## よく使う流れ
 
@@ -52,7 +57,8 @@
 ## ディレクトリ運用（分かりやすい推奨）
 
 - `init` / `lock-base`: `/root/mywork/setupScript` で実行
-- PJ作業: PJフォルダで `project-init`, `sync-here`, `status-here` を実行
+- PJ作業: PJフォルダで `project-init`, `sync-here`, `status-here`, `reset-here`, `all-here` を実行
+- 実行場所自由: `sync`, `reset`, `all`, `diff`, `check`, `status`, `update` はどこからでも実行可能（必要なら `[project]` を指定）
 
 例:
 

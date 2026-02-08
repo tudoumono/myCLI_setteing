@@ -60,7 +60,12 @@ Usage:
   ./update-ai-clis.sh check [project]
   ./update-ai-clis.sh status [project]
   ./update-ai-clis.sh status-here
+  ./update-ai-clis.sh -h
+  ./update-ai-clis.sh help
+  ./update-ai-clis.sh --help
+  ./update-ai-clis.sh update --dry-run
   ./update-ai-clis.sh <sync|reset|all> [project] --dry-run
+  ./update-ai-clis.sh <sync-here|reset-here|all-here> --dry-run
 
 Commands:
   init    Create baseline files under ai-config/.
@@ -77,7 +82,7 @@ Commands:
   check   Verify master matches deployed state; exit non-zero on drift (CI-friendly).
   status  Show versions and effective configuration status.
   status-here  Show status with project = current directory.
-  --dry-run  Preview changes for sync/reset/all without applying.
+  --dry-run  Preview actions for update/sync/reset/all (including *-here) without applying.
 
 Layer order (later overrides earlier):
   1) ai-config/base.json               (Global)
