@@ -32,6 +32,20 @@
 - `check`: skills と global instructions の配布結果のみ比較し、不一致なら非0終了（CI/cron向け）
 - `--dry-run`: `update/sync/reset/all`（`*-here` 含む）で実変更なしに実行内容のみ確認
 
+## 対話UI（メニュー）
+
+コマンドを覚えずに実行したい場合は、メニューラッパーを使えます。
+
+```bash
+./menu.sh
+```
+
+- Ubuntu標準の `whiptail` があればダイアログUIで実行されます（無い場合はテキストUI）。
+- `update-ai-clis.sh` の主要コマンドを説明付きで番号選択実行できます。
+- `sync/reset/all` 系は `--dry-run` の有無を都度選択できます。
+- `*-here` 系は対象ディレクトリを入力して実行できます。
+- `16) ガイド` でクイックフローと注意点を確認できます。
+
 ## デフォルト動作
 
 - 引数なしで `./update-ai-clis.sh` を実行すると `update` と同じ動作になります。
@@ -79,10 +93,10 @@ cd /root/mywork/my-new-project
 
 ## レイヤー優先順
 
-1. `ai-config/base.json` (Global)
-2. `ai-config/projects/<project>.json` (Project)
-3. `ai-config/local.json` (Machine local)
-4. `./.ai-stack.local.json` (Folder local)
+1. `ai-config/base.json`（グローバル）
+2. `ai-config/projects/<project>.json`（プロジェクト、任意）
+3. `ai-config/local.json`（マシンローカル、任意）
+4. `./.ai-stack.local.json`（フォルダローカル、任意）
 
 後ろほど優先されます。
 

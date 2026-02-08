@@ -27,9 +27,22 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 - PJ初期化（project-init）
   - `.ai-stack.local.json` 雛形、`BACKLOG.md` 雛形、`.gitignore` 追記を自動化
 - PJフォルダ基準の簡易実行（sync-here/status-here/reset-here/all-here）
+- 対話UI（`menu.sh`）でのメニュー実行
 - ヘルプ表示（`help` / `--help` / `-h`）
 
 詳細な実行例は `USAGE.md` を参照してください。初学者向けの導入は `START_HERE.md` にまとめています。
+
+## 対話UI（メニュー）
+
+初心者や共有利用向けに、`update-ai-clis.sh` を対話メニューで呼び出すラッパーを用意しています。
+
+```bash
+./menu.sh
+```
+
+- Ubuntu標準の `whiptail` が利用可能な環境では、ダイアログUIで表示します。
+- `whiptail` が無い環境では、同等機能のテキストUIへ自動フォールバックします。
+- メニュー内 `16) ガイド` から「どのコマンドをいつ使うか」を確認できます。
 
 ## 設定ファイル
 
