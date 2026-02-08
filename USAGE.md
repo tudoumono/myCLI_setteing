@@ -100,7 +100,7 @@ cd /root/mywork/my-new-project
 
 後ろほど優先されます。
 
-## Baseの運用ルール
+## ベースの運用ルール
 
 - `ai-config/base.json` は固定ベースです（ロック対象）。
 - 機能追加は `ai-config/projects/<project>.json` またはローカルオーバーレイで実施します。
@@ -122,22 +122,22 @@ cd /root/mywork/my-new-project
 - 各項目は「トリガー条件（いつ再検討するか）」を持たせる運用を推奨します。
 - 設定配布対象ではないため、`sync/reset` でCLI側へはコピーされません。
 
-## Skills共通化
+## スキル共通化
 
 - マスター: `ai-config/skills/`
 - `sync` / `reset` で以下にコピー配布されます:
   - `~/.claude/skills/`
   - `~/.gemini/skills/`
   - `~/.codex/skills/`
-- 配布方式はコピーのみ（symlink不使用）
+- 配布方式はコピーのみ（シンボリックリンク不使用）
 
 ## グローバル指示の共通配布
 
 レイヤー化された指示ファイルを連結して配布します:
 
-1. `ai-config/global-instructions.md` (ベース)
-2. `ai-config/projects/<name>.instructions.md` (プロジェクト固有、任意)
-3. `ai-config/global-instructions.local.md` (マシン固有、gitignore対象、任意)
+1. `ai-config/global-instructions.md`（ベース）
+2. `ai-config/projects/<name>.instructions.md`（プロジェクト固有、任意）
+3. `ai-config/global-instructions.local.md`（マシン固有、gitignore対象、任意）
 
 ファイルが存在する場合のみ `sync` / `reset` で以下に配布:
 - `~/.claude/CLAUDE.md`
@@ -191,7 +191,7 @@ cd /root/mywork/my-new-project
 ${HOME}/.local/bin:${HOME}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}
 ```
 
-## ClaudeのRead系許可ポリシー
+## Claude の Read 系許可ポリシー
 
 - `permissions.allow` に `Read/Grep/Glob/LS` を付与します。
 - `Bash(cat|ls|find|grep...)` でのread許可は付与しません。

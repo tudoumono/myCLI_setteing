@@ -85,10 +85,10 @@ usage() {
   --dry-run  update/sync/reset/all（*-here 含む）を実変更なしでプレビューします。
 
 レイヤー優先順（後ろほど優先）:
-  1) ai-config/base.json               （Global）
-  2) ai-config/projects/<project>.json （Project、任意）
-  3) ai-config/local.json              （Machine local、任意）
-  4) ./.ai-stack.local.json            （Folder local、任意）
+  1) ai-config/base.json               （グローバル）
+  2) ai-config/projects/<project>.json （プロジェクト、任意）
+  3) ai-config/local.json              （マシンローカル、任意）
+  4) ./.ai-stack.local.json            （フォルダローカル、任意）
 USAGE_EOF
 }
 
