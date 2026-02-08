@@ -11,6 +11,11 @@ Main baseline (`base.json`) is intentionally locked.
 - `local.json`: Machine-local overlay (optional, do not commit)
 - `.ai-stack.local.json`: Folder-local overlay (optional, do not commit)
 
+## Backlog
+
+- `BACKLOG.md`: Setup-level deferred ideas with trigger conditions (not distributed to CLIs)
+- Project-level `BACKLOG.md` is created by `project-init` under each target project directory.
+
 ## Skills
 
 - `skills/<name>/SKILL.md`: Shared skills master (synced to all CLIs)

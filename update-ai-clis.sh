@@ -699,6 +699,31 @@ EOF_LOCAL
     info "Created folder local overlay: ${folder_overlay}"
   fi
 
+  local backlog="${project_dir}/BACKLOG.md"
+  if [[ -f "${backlog}" ]]; then
+    info "BACKLOG.md already exists: ${backlog}"
+  else
+    cat > "${backlog}" <<'EOF_BACKLOG'
+# Backlog
+
+保留中のアイデアや、条件付きで将来実装する案を記録する。
+
+## ルール
+
+- 案ごとに「トリガー条件」を明記する（いつ再検討するか）
+- 実装したら「完了」へ移動し、対応コミットを記載
+
+## 保留中
+
+（なし）
+
+## 完了
+
+（なし）
+EOF_BACKLOG
+    info "Created BACKLOG.md: ${backlog}"
+  fi
+
   if [[ -f "${gitignore}" ]]; then
     if ! has_exact_line ".ai-stack.local.json" "${gitignore}"; then
       echo ".ai-stack.local.json" >> "${gitignore}"
