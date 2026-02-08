@@ -68,8 +68,8 @@ Usage:
   ./update-ai-clis.sh <sync-here|reset-here|all-here> --dry-run
 
 Commands:
-  init    Create baseline files under ai-config/.
-  lock-base  Refresh and lock base.json hash (for intentional base update only).
+  init    Create baseline files under ai-config/. (run from setupScript directory only)
+  lock-base  Refresh and lock base.json hash (for intentional base update only; run from setupScript directory only).
   project-init  Initialize per-project overlay from current directory (or given path) and run sync.
   update  Update Claude/Gemini/Codex CLIs via npm.
   sync    Apply unified config (Global + Project + Folder local overlay).
@@ -467,6 +467,18 @@ assert_not_setupscript_dir() {
   local target="$1"
   if [[ "${target}" == "${SCRIPT_DIR}" ]]; then
     error "Current target is setupScript itself. Move to project folder or pass project path."
+    exit 1
+  fi
+}
+
+assert_setupscript_dir() {
+  local current_dir
+  local script_dir
+  current_dir="$(pwd -P)"
+  script_dir="$(cd "${SCRIPT_DIR}" >/dev/null 2>&1 && pwd -P)"
+  if [[ "${current_dir}" != "${script_dir}" ]]; then
+    error "This command must be run from setupScript directory: ${SCRIPT_DIR}"
+    error "Current directory: ${current_dir}"
     exit 1
   fi
 }
@@ -1977,9 +1989,11 @@ main() {
 
   case "${cmd}" in
     init)
+      assert_setupscript_dir
       bootstrap_config_files
       ;;
     lock-base)
+      assert_setupscript_dir
       bootstrap_config_files
       write_base_lock
       info "Locked base registry: ${BASE_REGISTRY_FILE}"

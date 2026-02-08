@@ -86,6 +86,7 @@ cd /path/to/my-project
 
 ## 初見でハマりやすい点
 
+- `init` / `lock-base` は `setupScript` フォルダでのみ実行可能です（別フォルダで実行するとエラー）。
 - 引数なしで `./update-ai-clis.sh` を実行すると `update` が走ります。
 - `sync/reset/diff/check/status` で `[project]` を省略した場合、フォルダローカル設定は `実行中ディレクトリ/.ai-stack.local.json` が使われます。
 - `check` は skills と global instructions の整合確認が対象です。MCP設定ファイル全体は比較しません。

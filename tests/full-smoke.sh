@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_ROOT="$(mktemp -d)"
 TMP_HOME="$(mktemp -d)"
+TMP_WORK="$(mktemp -d)"
 SCRIPT_DIR=""
 SCRIPT=""
 SETTINGS_BEFORE=""
@@ -16,7 +17,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 cleanup() {
-  rm -rf "${TMP_ROOT}" "${TMP_HOME}"
+  rm -rf "${TMP_ROOT}" "${TMP_HOME}" "${TMP_WORK}"
   if [[ -n "${SETTINGS_BEFORE}" && -f "${SETTINGS_BEFORE}" ]]; then
     rm -f "${SETTINGS_BEFORE}"
   fi
@@ -66,7 +67,9 @@ echo ""
 
 # --- init ---
 echo "-- init --"
-assert_exit_0 "init runs" "${SCRIPT}" init
+assert_exit_nonzero "init fails outside setupScript dir" bash -lc "cd \"${TMP_WORK}\" && \"${SCRIPT}\" init"
+assert_exit_nonzero "lock-base fails outside setupScript dir" bash -lc "cd \"${TMP_WORK}\" && \"${SCRIPT}\" lock-base"
+assert_exit_0 "init runs" bash -lc "cd \"${SCRIPT_DIR}\" && \"${SCRIPT}\" init"
 assert_file_exists "base.json exists" "${SCRIPT_DIR}/ai-config/base.json"
 assert_file_exists "base.lock exists" "${SCRIPT_DIR}/ai-config/base.lock.sha256"
 assert_file_exists "codex-base.toml exists" "${SCRIPT_DIR}/ai-config/codex-base.toml"

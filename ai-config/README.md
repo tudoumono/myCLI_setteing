@@ -56,6 +56,9 @@ Distributed files when merged content exists:
 3. Run `./update-ai-clis.sh sync <name>`
 4. Run `./update-ai-clis.sh check` to verify no drift for skills/global-instructions.
 
+Note:
+- `init` and `lock-base` must be run from the setupScript directory.
+
 If you intentionally update `base.json`, run:
 
 `./update-ai-clis.sh lock-base`

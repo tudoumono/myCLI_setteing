@@ -61,7 +61,7 @@
 
 ## ディレクトリ運用（分かりやすい推奨）
 
-- `init` / `lock-base`: `/root/mywork/setupScript` で実行
+- `init` / `lock-base`: `/root/mywork/setupScript` でのみ実行可能（他フォルダではエラー）
 - PJ作業: PJフォルダで `project-init`, `sync-here`, `status-here`, `reset-here`, `all-here` を実行
 - 実行場所自由: `sync`, `reset`, `all`, `diff`, `check`, `status`, `update` はどこからでも実行可能（必要なら `[project]` を指定）
 

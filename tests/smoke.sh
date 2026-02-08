@@ -34,7 +34,7 @@ SCRIPT="${TMP_ROOT}/setupScript/update-ai-clis.sh"
 export HOME="${TMP_HOME}"
 export PATH="${MOCK_BIN}:${PATH}"
 
-"${SCRIPT}" init
+bash -lc "cd \"${TMP_ROOT}/setupScript\" && \"${SCRIPT}\" init"
 "${SCRIPT}" sync "${TMP_PROJECT}"
 "${SCRIPT}" status "${TMP_PROJECT}" >/dev/null
 "${SCRIPT}" reset "${TMP_PROJECT}"
