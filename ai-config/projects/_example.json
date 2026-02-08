@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "/root/mywork/example-project": [
+      "context7"
+    ]
+  },
+  "servers": {
+    "context7": {
+      "enabled": true
+    }
+  }
+}

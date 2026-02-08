@@ -1,0 +1,15 @@
+# Codex baseline managed by update-ai-clis.sh
+model = "gpt-5.3-codex"
+personality = "pragmatic"
+model_reasoning_effort = "xhigh"
+
+[projects."/root"]
+trust_level = "trusted"
+
+[features]
+shell_snapshot = true
+collab = true
+apps = true
+
+[tools]
+web_search = true

@@ -1,0 +1,49 @@
+{
+  "defaults": {
+    "language": {
+      "claude": "日本語",
+      "codex": "日本語",
+      "gemini": "日本語"
+    },
+    "webSearch": {
+      "claude": true,
+      "codex": true,
+      "gemini": true
+    }
+  },
+  "global": {
+    "claudeServers": [
+      "context7"
+    ]
+  },
+  "servers": {
+    "context7": {
+      "enabled": true,
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "targets": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "delivery": {
+        "claude": "plugin",
+        "codex": "config",
+        "gemini": "settings"
+      },
+      "npm_package": "@upstash/context7-mcp"
+    }
+  },
+  "projects": {},
+  "uninstall": {
+    "npm": [
+      "@upstash/context7-mcp"
+    ],
+    "pipx": [
+      "serena-agent"
+    ]
+  }
+}
