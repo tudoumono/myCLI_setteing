@@ -41,7 +41,8 @@ cd /path/to/setupScript
 
 - Ubuntu標準の `whiptail` が使える環境ではダイアログUIで表示されます。
 - `whiptail` が無い場合でもテキストUIで同じ機能を使えます。
-- メニューの `16) ガイド` で「最初に何を実行するか」を確認できます。
+- 日常メニューは最小項目のみ表示され、`a` で詳細メニューに切り替えられます。
+- メニューの `8) ガイド` で「最初に何を実行するか」を確認できます。
 
 ## よく使う運用パターン
 
@@ -72,6 +73,16 @@ cd /path/to/my-project
 ./update-ai-clis.sh reset my-project --dry-run
 ```
 
+### 4) PJ固有スキルを3CLIへ共有
+
+```bash
+# 1件だけ共有
+./update-ai-clis.sh skill-share my-project-skill
+
+# ローカルスキルを一括共有
+./update-ai-clis.sh skill-share-all
+```
+
 ## コマンド早見表
 
 - `init`: `ai-config/` の必須ファイルを作成
@@ -97,6 +108,7 @@ cd /path/to/my-project
 ## 初見でハマりやすい点
 
 - `init` / `lock-base` は `setupScript` フォルダでのみ実行可能です（別フォルダで実行するとエラー）。
+- `sync/reset/status/check` は正本不足時に自動作成しません。最初に `init` が必要です。
 - 引数なしで `./update-ai-clis.sh` を実行すると `update` が走ります。
 - `sync/reset/diff/check/status` で `[project]` を省略した場合、フォルダローカル設定は `実行中ディレクトリ/.ai-stack.local.json` が使われます。
 - `check` は skills と global instructions の整合確認が対象です。MCP設定ファイル全体は比較しません。
@@ -106,5 +118,6 @@ cd /path/to/my-project
 
 - 全体概要: `README.md`
 - 詳細コマンド: `USAGE.md`
+- 実運用シナリオ: `USE_CASES.md`
 - レイヤー定義: `ai-config/README.md`
 - テスト: `tests/smoke.sh` / `tests/full-smoke.sh`

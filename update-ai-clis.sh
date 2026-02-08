@@ -33,10 +33,18 @@ EFFECTIVE_LAYERS=""
 ACTIVE_PROJECT_REF=""
 DRY_RUN=0
 
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
+# Disable ANSI colors when output is not a TTY (e.g. menu log, CI) or NO_COLOR is set.
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  GREEN='\033[0;32m'
+  YELLOW='\033[1;33m'
+  RED='\033[0;31m'
+  NC='\033[0m'
+else
+  GREEN=''
+  YELLOW=''
+  RED=''
+  NC=''
+fi
 
 info()  { printf "${GREEN}[INFO]${NC}  %s\n" "$*"; }
 warn()  { printf "${YELLOW}[WARN]${NC}  %s\n" "$*"; }
@@ -60,12 +68,15 @@ usage() {
   ./update-ai-clis.sh check [project]
   ./update-ai-clis.sh status [project]
   ./update-ai-clis.sh status-here
+  ./update-ai-clis.sh skill-share <skill_name>
+  ./update-ai-clis.sh skill-share-all
   ./update-ai-clis.sh -h
   ./update-ai-clis.sh help
   ./update-ai-clis.sh --help
   ./update-ai-clis.sh update --dry-run
   ./update-ai-clis.sh <sync|reset|all> [project] --dry-run
   ./update-ai-clis.sh <sync-here|reset-here|all-here> --dry-run
+  ./update-ai-clis.sh <skill-share|skill-share-all> --dry-run
 
 コマンド説明:
   init    ai-config/ 配下のベースファイルを作成します（setupScript フォルダでのみ実行可能）。
@@ -82,7 +93,9 @@ usage() {
   check   skills と global instructions のドリフトを検査し、不一致時は非0で終了します（CI向け）。
   status  バージョン情報と有効設定状態を表示します。
   status-here  project = 現在ディレクトリとして status を表示します。
-  --dry-run  update/sync/reset/all（*-here 含む）を実変更なしでプレビューします。
+  skill-share  指定したローカルスキルを 3CLI 間で共有します（managed skill は対象外）。
+  skill-share-all  ローカルスキル（managed 以外）を 3CLI 間で一括共有します。
+  --dry-run  update/sync/reset/all（*-here 含む）と skill-share 系を実変更なしでプレビューします。
 
 レイヤー優先順（後ろほど優先）:
   1) ai-config/base.json               （グローバル）
@@ -141,10 +154,17 @@ EOF_CODEX_BASE
 }
 
 ensure_codex_base_file() {
-  ensure_parent_dir "${CODEX_BASE_FILE}"
+  local allow_create="${1:-no}" # yes|no
   if [[ ! -f "${CODEX_BASE_FILE}" ]]; then
-    write_codex_base_template "${CODEX_BASE_FILE}"
-    info "Created Codex baseline: ${CODEX_BASE_FILE}"
+    if [[ "${allow_create}" == "yes" ]]; then
+      ensure_parent_dir "${CODEX_BASE_FILE}"
+      write_codex_base_template "${CODEX_BASE_FILE}"
+      info "Created Codex baseline: ${CODEX_BASE_FILE}"
+    else
+      error "Codex baseline file missing: ${CODEX_BASE_FILE}"
+      error "Run './update-ai-clis.sh init' from setupScript directory first."
+      exit 1
+    fi
   fi
 }
 
@@ -153,10 +173,21 @@ escape_sed_replacement() {
 }
 
 ensure_skills_master() {
-  mkdir -p "${SKILLS_MASTER_DIR}"
+  local allow_create="${1:-no}" # yes|no
+
+  if [[ ! -d "${SKILLS_MASTER_DIR}" ]]; then
+    if [[ "${allow_create}" == "yes" ]]; then
+      mkdir -p "${SKILLS_MASTER_DIR}"
+    else
+      error "Skills master directory missing: ${SKILLS_MASTER_DIR}"
+      error "Run './update-ai-clis.sh init' from setupScript directory first."
+      exit 1
+    fi
+  fi
 
   if [[ ! -f "${SKILLS_MASTER_DIR}/README.md" ]]; then
-    cat > "${SKILLS_MASTER_DIR}/README.md" <<'EOF_SKILLS_README'
+    if [[ "${allow_create}" == "yes" ]]; then
+      cat > "${SKILLS_MASTER_DIR}/README.md" <<'EOF_SKILLS_README'
 # skills master
 
 `ai-config/skills` is the single source of truth for user skills.
@@ -167,29 +198,9 @@ Synced targets:
 - `~/.gemini/skills`
 - `~/.codex/skills`
 EOF_SKILLS_README
-  fi
-
-  if find "${SKILLS_MASTER_DIR}" -mindepth 1 -maxdepth 1 -type d | read -r; then
-    return 0
-  fi
-
-  if [[ ! -d "${CLAUDE_SKILLS_DIR}" ]]; then
-    return 0
-  fi
-
-  local imported=0
-  local src
-  local name
-  while IFS= read -r -d '' src; do
-    name="$(basename "${src}")"
-    [[ "${name}" == .* ]] && continue
-    [[ -f "${src}/SKILL.md" ]] || continue
-    cp -a "${src}" "${SKILLS_MASTER_DIR}/${name}"
-    imported=$((imported + 1))
-  done < <(find "${CLAUDE_SKILLS_DIR}" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
-
-  if [[ "${imported}" -gt 0 ]]; then
-    info "Seeded skills master from ${CLAUDE_SKILLS_DIR}: ${imported} skills"
+    else
+      warn "Skills master README missing: ${SKILLS_MASTER_DIR}/README.md"
+    fi
   fi
 }
 
@@ -307,6 +318,182 @@ sync_skills() {
   sync_skills_to_target "${GEMINI_SKILLS_DIR}"
   sync_skills_to_target "${CODEX_SKILLS_DIR}"
   info "Synced skills: master=${master_count}, targets=claude/gemini/codex"
+}
+
+skills_dir_for_cli() {
+  local cli="$1"
+  case "${cli}" in
+    claude) printf "%s\n" "${CLAUDE_SKILLS_DIR}" ;;
+    gemini) printf "%s\n" "${GEMINI_SKILLS_DIR}" ;;
+    codex) printf "%s\n" "${CODEX_SKILLS_DIR}" ;;
+    *)
+      error "Unknown CLI target: ${cli}"
+      return 1
+      ;;
+  esac
+}
+
+file_mtime_epoch() {
+  local f="$1"
+  if stat -c %Y "${f}" >/dev/null 2>&1; then
+    stat -c %Y "${f}"
+    return 0
+  fi
+  if stat -f %m "${f}" >/dev/null 2>&1; then
+    stat -f %m "${f}"
+    return 0
+  fi
+  printf "0\n"
+}
+
+list_skill_names_in_dir() {
+  local dir="$1"
+  [[ -d "${dir}" ]] || return 0
+  local skill_dir
+  local name
+  while IFS= read -r -d '' skill_dir; do
+    name="$(basename "${skill_dir}")"
+    [[ "${name}" == .* ]] && continue
+    [[ -f "${skill_dir}/SKILL.md" ]] || continue
+    printf "%s\n" "${name}"
+  done < <(find "${dir}" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
+}
+
+share_skill_to_all_targets() {
+  local skill_name="$1"
+  local allow_managed="${2:-no}"
+
+  if [[ -z "${skill_name}" ]]; then
+    error "Skill name is required."
+    return 1
+  fi
+  if [[ "${skill_name}" == *"/"* ]]; then
+    error "Invalid skill name '${skill_name}'. Use only skill directory name."
+    return 1
+  fi
+
+  if [[ "${allow_managed}" != "yes" && -f "${SKILLS_MASTER_DIR}/${skill_name}/SKILL.md" ]]; then
+    error "Skill '${skill_name}' is managed by ai-config/skills."
+    error "Use 'sync' to distribute managed skills."
+    return 1
+  fi
+
+  local src_cli=""
+  local src_skill_dir=""
+  local src_mtime=-1
+  local found_count=0
+  local cli=""
+  local target_dir=""
+  local skill_md=""
+  local mtime=0
+  local hash=""
+  local -A hashes=()
+
+  for cli in claude gemini codex; do
+    target_dir="$(skills_dir_for_cli "${cli}")" || return 1
+    skill_md="${target_dir}/${skill_name}/SKILL.md"
+    if [[ -f "${skill_md}" ]]; then
+      found_count=$((found_count + 1))
+      hash="$(sha256_of_file "${skill_md}")"
+      hashes["${hash}"]=1
+      mtime="$(file_mtime_epoch "${skill_md}")"
+      if (( mtime > src_mtime )); then
+        src_mtime="${mtime}"
+        src_cli="${cli}"
+        src_skill_dir="${target_dir}/${skill_name}"
+      fi
+    fi
+  done
+
+  if [[ "${found_count}" -eq 0 ]]; then
+    error "Skill '${skill_name}' was not found in ~/.claude/skills, ~/.gemini/skills, ~/.codex/skills."
+    return 1
+  fi
+
+  if [[ "${#hashes[@]}" -gt 1 ]]; then
+    warn "Multiple variants found for '${skill_name}'."
+    warn "Using latest modified copy from '${src_cli}' as source."
+  fi
+
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    info "Dry-run: would share '${skill_name}' from ${src_cli} -> claude/gemini/codex"
+    return 0
+  fi
+
+  local target_skill_dir=""
+  for cli in claude gemini codex; do
+    target_dir="$(skills_dir_for_cli "${cli}")" || return 1
+    target_skill_dir="${target_dir}/${skill_name}"
+    mkdir -p "${target_dir}"
+    if [[ "${target_skill_dir}" != "${src_skill_dir}" ]]; then
+      rm -rf "${target_skill_dir}"
+      mkdir -p "${target_skill_dir}"
+      cp -a "${src_skill_dir}/." "${target_skill_dir}/"
+    fi
+    render_skill_for_target "${target_skill_dir}/SKILL.md" "${target_dir}"
+  done
+
+  info "Shared local skill '${skill_name}' from ${src_cli} to claude/gemini/codex"
+}
+
+skill_share() {
+  local skill_name="${1:-}"
+  if [[ -z "${skill_name}" ]]; then
+    error "Usage: ./update-ai-clis.sh skill-share <skill_name>"
+    exit 1
+  fi
+  bootstrap_config_files "verify"
+  validate_base_locked
+  share_skill_to_all_targets "${skill_name}"
+}
+
+skill_share_all() {
+  local maybe_arg="${1:-}"
+  if [[ -n "${maybe_arg}" ]]; then
+    error "Usage: ./update-ai-clis.sh skill-share-all"
+    exit 1
+  fi
+  bootstrap_config_files "verify"
+  validate_base_locked
+
+  local -A local_skills=()
+  local cli=""
+  local target_dir=""
+  local name=""
+
+  for cli in claude gemini codex; do
+    target_dir="$(skills_dir_for_cli "${cli}")" || exit 1
+    while IFS= read -r name; do
+      [[ -n "${name}" ]] || continue
+      if [[ -f "${SKILLS_MASTER_DIR}/${name}/SKILL.md" ]]; then
+        continue
+      fi
+      local_skills["${name}"]=1
+    done < <(list_skill_names_in_dir "${target_dir}")
+  done
+
+  if [[ "${#local_skills[@]}" -eq 0 ]]; then
+    info "No local-only skills found to share."
+    return 0
+  fi
+
+  local shared=0
+  local failed=0
+  while IFS= read -r name; do
+    [[ -n "${name}" ]] || continue
+    if share_skill_to_all_targets "${name}" "yes"; then
+      shared=$((shared + 1))
+    else
+      failed=$((failed + 1))
+    fi
+  done < <(printf "%s\n" "${!local_skills[@]}" | sort)
+
+  if [[ "${failed}" -gt 0 ]]; then
+    error "skill-share-all completed with errors: shared=${shared}, failed=${failed}"
+    return 1
+  fi
+
+  info "Shared local skills across all CLIs: ${shared}"
 }
 
 sha256_short() {
@@ -434,7 +621,11 @@ ensure_base_lock() {
 }
 
 validate_base_locked() {
-  ensure_base_lock
+  if [[ ! -f "${BASE_LOCK_FILE}" ]]; then
+    error "Base lock missing: ${BASE_LOCK_FILE}"
+    error "Run './update-ai-clis.sh init' or './update-ai-clis.sh lock-base' from setupScript directory."
+    exit 1
+  fi
   local expected
   local actual
   expected="$(tr -d '[:space:]' < "${BASE_LOCK_FILE}")"
@@ -543,9 +734,39 @@ update_clis() {
 }
 
 bootstrap_config_files() {
-  mkdir -p "${CONFIG_DIR}" "${PROJECTS_DIR}" "${CONFIG_DIR}/backups"
+  local mode="${1:-verify}" # create|verify
+  local allow_create="no"
+  case "${mode}" in
+    create) allow_create="yes" ;;
+    verify) allow_create="no" ;;
+    *)
+      error "Invalid bootstrap mode: ${mode}"
+      exit 1
+      ;;
+  esac
+
+  if [[ "${allow_create}" == "yes" ]]; then
+    mkdir -p "${CONFIG_DIR}" "${PROJECTS_DIR}" "${CONFIG_DIR}/backups"
+  else
+    if [[ ! -d "${CONFIG_DIR}" ]]; then
+      error "Config directory missing: ${CONFIG_DIR}"
+      error "Run './update-ai-clis.sh init' from setupScript directory first."
+      exit 1
+    fi
+    if [[ ! -d "${PROJECTS_DIR}" ]]; then
+      error "Projects directory missing: ${PROJECTS_DIR}"
+      error "Run './update-ai-clis.sh init' from setupScript directory first."
+      exit 1
+    fi
+    mkdir -p "${CONFIG_DIR}/backups"
+  fi
 
   if [[ ! -f "${BASE_REGISTRY_FILE}" ]]; then
+    if [[ "${allow_create}" != "yes" ]]; then
+      error "Baseline config missing: ${BASE_REGISTRY_FILE}"
+      error "Run './update-ai-clis.sh init' from setupScript directory first."
+      exit 1
+    fi
     cat > "${BASE_REGISTRY_FILE}" <<'EOF_BASE'
 {
   "defaults": {
@@ -600,10 +821,11 @@ EOF_BASE
     info "Created baseline config: ${BASE_REGISTRY_FILE}"
   fi
 
-  ensure_codex_base_file
+  ensure_codex_base_file "${allow_create}"
 
   if [[ ! -f "${PROJECTS_DIR}/_example.json" ]]; then
-    cat > "${PROJECTS_DIR}/_example.json" <<'EOF_PROJECT'
+    if [[ "${allow_create}" == "yes" ]]; then
+      cat > "${PROJECTS_DIR}/_example.json" <<'EOF_PROJECT'
 {
   "projects": {
     "/root/mywork/example-project": [
@@ -617,11 +839,13 @@ EOF_BASE
   }
 }
 EOF_PROJECT
-    info "Created project overlay template: ${PROJECTS_DIR}/_example.json"
+      info "Created project overlay template: ${PROJECTS_DIR}/_example.json"
+    fi
   fi
 
   if [[ ! -f "${CONFIG_DIR}/README.md" ]]; then
-    cat > "${CONFIG_DIR}/README.md" <<'EOF_README'
+    if [[ "${allow_create}" == "yes" ]]; then
+      cat > "${CONFIG_DIR}/README.md" <<'EOF_README'
 # ai-config
 
 Layered configuration for Claude/Codex/Gemini baseline.
@@ -650,17 +874,20 @@ If you intentionally update `base.json`, run:
 
 `./update-ai-clis.sh lock-base`
 EOF_README
-    info "Created docs: ${CONFIG_DIR}/README.md"
+      info "Created docs: ${CONFIG_DIR}/README.md"
+    fi
   fi
 
-  ensure_skills_master
+  ensure_skills_master "${allow_create}"
 
-  ensure_base_lock
+  if [[ "${allow_create}" == "yes" ]]; then
+    ensure_base_lock
+  fi
 }
 
 project_init() {
   ensure_node
-  bootstrap_config_files
+  bootstrap_config_files "verify"
   validate_base_locked
 
   local raw_project_dir="${1:-$PWD}"
@@ -752,7 +979,7 @@ EOF_BACKLOG
 
 build_effective_registry() {
   ensure_node
-  bootstrap_config_files
+  bootstrap_config_files "verify"
   validate_base_locked
 
   local project_ref="${1:-}"
@@ -1990,11 +2217,11 @@ main() {
   case "${cmd}" in
     init)
       assert_setupscript_dir
-      bootstrap_config_files
+      bootstrap_config_files "create"
       ;;
     lock-base)
       assert_setupscript_dir
-      bootstrap_config_files
+      bootstrap_config_files "verify"
       write_base_lock
       info "Locked base registry: ${BASE_REGISTRY_FILE}"
       info "Updated lock hash: ${BASE_LOCK_FILE}"
@@ -2038,6 +2265,8 @@ main() {
       fi
       ;;
     all)
+      # Preflight first to avoid partial state where CLI update succeeds but sync later fails.
+      build_effective_registry "${ACTIVE_PROJECT_REF}"
       if [[ "${DRY_RUN}" -eq 1 ]]; then
         update_clis
         divider
@@ -2051,6 +2280,8 @@ main() {
     all-here)
       assert_not_setupscript_dir "${PWD}"
       ACTIVE_PROJECT_REF="${PWD}"
+      # Preflight first to avoid partial state where CLI update succeeds but sync later fails.
+      build_effective_registry "${ACTIVE_PROJECT_REF}"
       if [[ "${DRY_RUN}" -eq 1 ]]; then
         update_clis
         divider
@@ -2074,6 +2305,12 @@ main() {
       assert_not_setupscript_dir "${PWD}"
       ACTIVE_PROJECT_REF="${PWD}"
       status
+      ;;
+    skill-share)
+      skill_share "${project_ref}"
+      ;;
+    skill-share-all)
+      skill_share_all "${project_ref}"
       ;;
     -h|--help|help)
       usage

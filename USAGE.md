@@ -2,6 +2,7 @@
 
 `update-ai-clis.sh` は Claude/Codex/Gemini の共通ベース設定を同期・リセットするスクリプトです。
 初回導入は `START_HERE.md` を参照してください。
+具体的な運用シナリオは `USE_CASES.md` を参照してください。
 
 ## コマンド
 
@@ -20,17 +21,22 @@
 ./update-ai-clis.sh check [project]
 ./update-ai-clis.sh status [project]
 ./update-ai-clis.sh status-here
+./update-ai-clis.sh skill-share <skill_name>
+./update-ai-clis.sh skill-share-all
 ./update-ai-clis.sh -h
 ./update-ai-clis.sh help
 ./update-ai-clis.sh --help
 ./update-ai-clis.sh update --dry-run
 ./update-ai-clis.sh <sync|reset|all> [project] --dry-run
 ./update-ai-clis.sh <sync-here|reset-here|all-here> --dry-run
+./update-ai-clis.sh <skill-share|skill-share-all> --dry-run
 ```
 
 - `diff`: `sync` 相当の変更予定を表示
 - `check`: skills と global instructions の配布結果のみ比較し、不一致なら非0終了（CI/cron向け）
-- `--dry-run`: `update/sync/reset/all`（`*-here` 含む）で実変更なしに実行内容のみ確認
+- `--dry-run`: `update/sync/reset/all`（`*-here` 含む）と `skill-share` 系で実変更なしに実行内容のみ確認
+- `skill-share`: ローカルスキル1件を3CLIへ共有（managed skillは除く）
+- `skill-share-all`: ローカルスキル（managed以外）を3CLIへ一括共有
 
 ## 対話UI（メニュー）
 
@@ -41,10 +47,11 @@
 ```
 
 - Ubuntu標準の `whiptail` があればダイアログUIで実行されます（無い場合はテキストUI）。
-- `update-ai-clis.sh` の主要コマンドを説明付きで番号選択実行できます。
+- 日常メニューは「よく使う最小コマンド」のみ表示します。
+- `a` で詳細メニュー（全コマンド）へ切り替えできます。
 - `sync/reset/all` 系は `--dry-run` の有無を都度選択できます。
 - `*-here` 系は対象ディレクトリを入力して実行できます。
-- `16) ガイド` でクイックフローと注意点を確認できます。
+- `8) ガイド` でクイックフローと注意点を確認できます。
 
 ## デフォルト動作
 
@@ -105,6 +112,8 @@ cd /root/mywork/my-new-project
 - `ai-config/base.json` は固定ベースです（ロック対象）。
 - 機能追加は `ai-config/projects/<project>.json` またはローカルオーバーレイで実施します。
 - `base.json` を意図的に更新した場合のみ、以下でロックを更新します。
+- 通常コマンド（`sync/reset/status/check/...`）は正本不足時に自動作成せずエラー終了します（先に `init`）。
+- `lock-base` も正本不足時はエラー終了します（先に `init` で修復）。
 
 ```bash
 ./update-ai-clis.sh lock-base
@@ -130,6 +139,19 @@ cd /root/mywork/my-new-project
   - `~/.gemini/skills/`
   - `~/.codex/skills/`
 - 配布方式はコピーのみ（シンボリックリンク不使用）
+
+## PJ固有スキルの共有
+
+`ai-config/skills` に入れたくないスキルは、ローカル共有コマンドで3CLI間に展開できます。
+
+```bash
+./update-ai-clis.sh skill-share my-project-skill
+./update-ai-clis.sh skill-share-all
+```
+
+- `skill-share`: 指定スキルを3CLI間で共有
+- `skill-share-all`: ローカルスキル（managed以外）をまとめて共有
+- 同名スキルに差分がある場合は、更新時刻が最も新しいコピーを優先
 
 ## グローバル指示の共通配布
 

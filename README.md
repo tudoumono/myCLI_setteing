@@ -27,10 +27,12 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 - PJ初期化（project-init）
   - `.ai-stack.local.json` 雛形、`BACKLOG.md` 雛形、`.gitignore` 追記を自動化
 - PJフォルダ基準の簡易実行（sync-here/status-here/reset-here/all-here）
+- ローカルスキル相互共有（skill-share / skill-share-all）
 - 対話UI（`menu.sh`）でのメニュー実行
 - ヘルプ表示（`help` / `--help` / `-h`）
 
-詳細な実行例は `USAGE.md` を参照してください。初学者向けの導入は `START_HERE.md` にまとめています。
+詳細な実行例は `USAGE.md` を参照してください。初学者向けの導入は `START_HERE.md` にまとめています。  
+実運用の具体例は `USE_CASES.md` に整理しています。
 
 ## 対話UI（メニュー）
 
@@ -42,7 +44,8 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 
 - Ubuntu標準の `whiptail` が利用可能な環境では、ダイアログUIで表示します。
 - `whiptail` が無い環境では、同等機能のテキストUIへ自動フォールバックします。
-- メニュー内 `16) ガイド` から「どのコマンドをいつ使うか」を確認できます。
+- 日常メニューは最小項目のみ表示し、`a` で詳細メニュー（全コマンド）へ切り替えできます。
+- メニュー内 `8) ガイド` から「どのコマンドをいつ使うか」を確認できます。
 
 ## 設定ファイル
 
@@ -75,6 +78,8 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 - 追加機能は `projects/*.json` で管理
 - `sync/reset/status` は `base.json` 改変を検知したら停止
 - 意図的な改変時のみ `lock-base` でハッシュ更新
+- `init` 以外の通常コマンドは正本ファイルを自動生成・自動補完しない（不足時はエラーで停止）
+- `lock-base` も正本不足時は停止し、不足ファイルを自動生成しない
 
 ## 学びの更新方針（kb と skill）
 
@@ -100,6 +105,10 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 - 配布先: `~/.claude/skills/`, `~/.gemini/skills/`, `~/.codex/skills/`
 - 配布方式: コピーのみ（symlinkは使わない）
 - `sync` / `reset` 実行時に自動配布
+
+PJ固有で正本に入れたくないスキルは、ローカル共有コマンドを使います:
+- `./update-ai-clis.sh skill-share <skill_name>`: 1件共有
+- `./update-ai-clis.sh skill-share-all`: ローカルスキルを一括共有
 
 ## グローバル指示ファイル
 

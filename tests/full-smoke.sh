@@ -74,6 +74,13 @@ assert_file_exists "base.json exists" "${SCRIPT_DIR}/ai-config/base.json"
 assert_file_exists "base.lock exists" "${SCRIPT_DIR}/ai-config/base.lock.sha256"
 assert_file_exists "codex-base.toml exists" "${SCRIPT_DIR}/ai-config/codex-base.toml"
 
+rm -f "${SCRIPT_DIR}/ai-config/base.lock.sha256"
+assert_exit_nonzero "sync fails when base lock missing" "${SCRIPT}" sync
+assert_exit_nonzero "all --dry-run fails when base lock missing" "${SCRIPT}" all --dry-run
+assert_exit_nonzero "all-here --dry-run fails when base lock missing" bash -lc "cd \"${TMP_WORK}\" && \"${SCRIPT}\" all-here --dry-run"
+assert_exit_0 "lock-base restores base lock" bash -lc "cd \"${SCRIPT_DIR}\" && \"${SCRIPT}\" lock-base"
+assert_file_exists "base.lock restored" "${SCRIPT_DIR}/ai-config/base.lock.sha256"
+
 # --- sync ---
 echo "-- sync --"
 assert_exit_0 "sync runs" "${SCRIPT}" sync
@@ -93,6 +100,35 @@ assert_file_not_exists "legacy agents skills are not used" "${HOME}/.agents/skil
 assert_file_contains "claude skill has claude path" "${HOME}/.claude/skills/sync-knowledge/SKILL.md" "${HOME}/.claude/skills"
 assert_file_contains "gemini skill has gemini path" "${HOME}/.gemini/skills/sync-knowledge/SKILL.md" "${HOME}/.gemini/skills"
 assert_file_contains "codex skill has codex path" "${HOME}/.codex/skills/sync-knowledge/SKILL.md" "${HOME}/.codex/skills"
+
+# --- local skill share ---
+echo "-- local skill share --"
+mkdir -p "${HOME}/.codex/skills/pj-local-share"
+cat > "${HOME}/.codex/skills/pj-local-share/SKILL.md" <<'EOF'
+# pj-local-share
+path: {{SKILLS_DIR}}
+EOF
+assert_exit_0 "skill-share runs" "${SCRIPT}" skill-share pj-local-share
+assert_file_exists "skill-share copied to claude" "${HOME}/.claude/skills/pj-local-share/SKILL.md"
+assert_file_exists "skill-share copied to gemini" "${HOME}/.gemini/skills/pj-local-share/SKILL.md"
+assert_file_contains "skill-share rendered claude path" "${HOME}/.claude/skills/pj-local-share/SKILL.md" "${HOME}/.claude/skills"
+assert_file_contains "skill-share rendered gemini path" "${HOME}/.gemini/skills/pj-local-share/SKILL.md" "${HOME}/.gemini/skills"
+assert_file_contains "skill-share rendered codex path" "${HOME}/.codex/skills/pj-local-share/SKILL.md" "${HOME}/.codex/skills"
+
+mkdir -p "${HOME}/.claude/skills/pj-only-claude"
+cat > "${HOME}/.claude/skills/pj-only-claude/SKILL.md" <<'EOF'
+# pj-only-claude
+path: {{SKILLS_DIR}}
+EOF
+mkdir -p "${HOME}/.gemini/skills/pj-only-gemini"
+cat > "${HOME}/.gemini/skills/pj-only-gemini/SKILL.md" <<'EOF'
+# pj-only-gemini
+path: {{SKILLS_DIR}}
+EOF
+assert_exit_0 "skill-share-all runs" "${SCRIPT}" skill-share-all
+assert_file_exists "skill-share-all claude copied" "${HOME}/.claude/skills/pj-only-gemini/SKILL.md"
+assert_file_exists "skill-share-all codex copied" "${HOME}/.codex/skills/pj-only-claude/SKILL.md"
+assert_exit_nonzero "skill-share rejects managed skills" "${SCRIPT}" skill-share kb-troubleshooting
 
 # --- check (no drift after sync) ---
 echo "-- check --"
