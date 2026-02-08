@@ -14,6 +14,10 @@ Main baseline (`base.json`) is intentionally locked.
 ## Skills
 
 - `skills/<name>/SKILL.md`: Shared skills master (synced to all CLIs)
+- Synced destinations:
+  - `~/.claude/skills/<name>/SKILL.md`
+  - `~/.gemini/skills/<name>/SKILL.md`
+  - `~/.codex/skills/<name>/SKILL.md`
 
 ## Global Instructions
 
@@ -22,6 +26,12 @@ Layered and concatenated in order:
 1. `global-instructions.md` (base, optional)
 2. `projects/<name>.instructions.md` (project, optional)
 3. `global-instructions.local.md` (machine-local, optional, do not commit)
+
+Distributed files when merged content exists:
+
+- `~/.claude/CLAUDE.md`
+- `~/.codex/AGENTS.md`
+- `~/.gemini/GEMINI.md`
 
 ## Priority
 
@@ -39,7 +49,7 @@ Layered and concatenated in order:
 1. `./update-ai-clis.sh init`
 2. Add project-specific differences in `projects/<name>.json`
 3. Run `./update-ai-clis.sh sync <name>`
-4. Run `./update-ai-clis.sh check` to verify no drift.
+4. Run `./update-ai-clis.sh check` to verify no drift for skills/global-instructions.
 
 If you intentionally update `base.json`, run:
 

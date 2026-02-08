@@ -1,6 +1,7 @@
 # setupScript
 
 AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場です。
+初めて使う場合は `START_HERE.md` を先に読んでください。
 
 ## 目的
 
@@ -15,6 +16,7 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 
 対応:
 - CLI更新（npm）
+- 引数なし実行時の既定動作（`update`）
 - 共通設定の同期（sync）
 - 差分確認・実行プレビュー（diff / --dry-run）
 - 共通設定のリセット（reset）
@@ -23,10 +25,11 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 - グローバル指示配布（`ai-config/global-instructions.md` を各CLIへ配布）
 - ベースロック更新（lock-base）
 - PJ初期化（project-init）
+  - `.ai-stack.local.json` 雛形と `.gitignore` 追記を自動化
 - PJフォルダ基準の簡易実行（sync-here/status-here/reset-here/all-here）
 - ヘルプ表示（`help` / `--help` / `-h`）
 
-詳細な実行例は `USAGE.md` を参照してください。
+詳細な実行例は `USAGE.md` を参照してください。初学者向けの導入は `START_HERE.md` にまとめています。
 
 ## 設定ファイル
 
@@ -45,6 +48,10 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 - どこでも実行可（`sync`, `reset`, `all`, `diff`, `check`, `status`, `update`）: 必要に応じて `[project]` 指定や `*-here` を使い分ける
 
 これで「1つのシェルでディレクトリを行き来する」運用を減らせます。
+
+注意:
+- `sync/reset/diff/check/status` で `[project]` を省略すると、フォルダローカルレイヤーは「実行中ディレクトリ」の `.ai-stack.local.json` が使われます。
+- `sync my-project` を別フォルダから実行すると、その別フォルダ側の `.ai-stack.local.json` がレイヤーに入ります。
 
 ## 重要ポリシー
 
@@ -81,17 +88,31 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 - `~/.codex/AGENTS.md`
 - `~/.gemini/GEMINI.md`
 
+連結対象ファイルが1つも存在しない場合は配布を実行しません（既存の `CLAUDE.md/AGENTS.md/GEMINI.md` を自動削除もしません）。
+
+## resetの挙動
+
+- `reset` は認証トークンを保持したまま、設定系をベース状態へ戻します。
+- `~/.gemini/mcp.managed.json` は削除されます。
+- 有効レジストリに登録された npm/pipx の MCP パッケージをアンインストール対象として処理します。
+- `sync` と同様に skills と global instructions の配布は実行されます。
+- 事前確認は `./update-ai-clis.sh reset --dry-run` で行えます。
+
 ## ドリフト検知（CI向け）
 
 ```bash
 ./update-ai-clis.sh check
 ```
 
-master と配布先が不一致なら非0終了。cron/CIでドリフト検知に使えます。
+`check` は skills と global instructions の配布結果のみを比較し、不一致なら非0終了します。cron/CIで内容ドリフト検知に使えます（MCP設定ファイルの比較は対象外）。
 
 ## statusで確認できるもの
 
 - MCP有効数（Codex/Claude/Gemini）
+- Active layers（Global/Project/Local/Folder localの適用状態）
+- Codex web_search の有効状態
+- Gemini managed manifest の有無
+- Registry enabled MCP 数（有効なMCP定義数）
 - Skills数 + sha256ハッシュ（master/Claude）
 - Global instructions の有無 + ハッシュ + レイヤー情報
 
