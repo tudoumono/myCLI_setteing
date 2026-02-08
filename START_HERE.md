@@ -1,138 +1,76 @@
 # START HERE
 
-このドキュメントは、`setupScript` を初めて触る人向けの最短ガイドです。
+このドキュメントは、`setupScript` を初めて使う人向けの最短ガイドです。
 
-## これは何をするプロジェクトか
+## まず理解すること
 
-- Claude/Codex/Gemini の設定を1つのレジストリ（`ai-config/`）でまとめて管理します。
-- `sync` で3CLIへ同じ方針を配布し、`reset` でベース状態に戻せます。
-- 設定は `Global / Project / Local / Folder local` の4レイヤーで上書きできます。
+- Git 管理の正本は `ai-config/*`。
+- PJ 固有の設定は PJ フォルダに置く。
+- PJ の設定を `~/.claude` / `~/.codex` / `~/.gemini` に反映する時は `promote*` を使う。
+- `sync-here` は確認用（プレビュー）で、反映はしない。
 
-## 先に知っておくこと
+## 5分セットアップ
 
-- このスクリプトは `~/.claude.json`、`~/.claude/settings.json`、`~/.codex/config.toml`、`~/.gemini/settings.json` を更新します。
-- `reset` は npm/pipx の MCP パッケージをアンインストール対象として処理します。
-- 実行前の設定は `ai-config/backups/<timestamp>/` にバックアップされます。
-
-## 必要環境
-
-- Bash
-- Node.js
-- npm
-- pipx（pipxパッケージを扱う場合のみ）
-
-## 最短セットアップ（5分）
+1. リポジトリを手動 clone（`myCLI_setteing`）
+2. `setupScript` で初期化
 
 ```bash
-cd /path/to/setupScript
+cd /path/to/myCLI_setteing
 ./update-ai-clis.sh init
-./update-ai-clis.sh sync
 ./update-ai-clis.sh status
+```
+
+3. 必要ならドリフト確認
+
+```bash
 ./update-ai-clis.sh check
 ```
 
-これで「共通ベース設定の初期化・配布・確認」まで完了します。
+## PJ開始の基本フロー
 
-コマンド操作に不安がある場合は、先にメニューUIを使ってもOKです:
+```bash
+# PJ管理ファイルを作成
+/path/to/myCLI_setteing/update-ai-clis.sh project-init /path/to/my-project
+
+# PJ側で確認（まだ反映しない）
+cd /path/to/my-project
+/path/to/myCLI_setteing/update-ai-clis.sh sync-here
+
+# 反映したい時だけ昇格
+/path/to/myCLI_setteing/update-ai-clis.sh promote-here
+
+# 状態確認
+/path/to/myCLI_setteing/update-ai-clis.sh status-here
+```
+
+`project-init` で作成されるもの:
+- `<project>/.ai-stack.local.json`
+- `<project>/BACKLOG.md`
+
+## よく使う判断
+
+- 差分だけ見たい: `sync-here` または `diff`
+- PJ内容を実際に反映したい: `promote-here`
+- ユーザ設定を完全に空にしたい: `wipe-user`
+- Git 管理状態へ戻したい: `reset-user`
+
+## よくある誤解
+
+- `sync-here` は反映コマンドではありません（プレビュー専用）。
+- `project-init` は `~/` 配下を直接書き換えません。
+- `base.json` は最優先ではなく下位レイヤーの共通ベースです。
+
+## メニューで使う場合
 
 ```bash
 ./menu.sh
 ```
 
-- Ubuntu標準の `whiptail` が使える環境ではダイアログUIで表示されます。
-- `whiptail` が無い場合でもテキストUIで同じ機能を使えます。
-- 日常メニューは最小項目のみ表示され、`a` で詳細メニューに切り替えられます。
-- メニューの `8) ガイド` で「最初に何を実行するか」を確認できます。
+- `whiptail` があればダイアログ UI、なければテキスト UI。
+- 日常運用は `sync-here -> promote-here -> status-here` の順で使うと安全です。
 
-## 運用モデル（30秒版）
+## 次に読む
 
-1. このPCの全体設定をそろえる
-   - `init` + `sync` で `~/.claude` / `~/.codex` / `~/.gemini` に反映します。
-2. PJで調整して使う
-   - PJフォルダで `project-init` を実行し、`sync-here` で反映します。
-   - PJ固有設定は `.ai-stack.local.json` に追加します。
-3. 良い変更だけ全体に昇格する
-   - `ai-config/*` に手動で取り込み、`sync` で全CLIへ再配布します。
-   - `base.json` を変更したときだけ `lock-base` が必要です。
-
-重要:
-- `base.json` は最優先設定ではなく「共通ベース」です。上位レイヤーで上書きされます。
-- 「PJから全体へ自動昇格」するコマンドはありません（意図的に手動運用）。
-
-## よく使う運用パターン
-
-### 1) 既存PJへ設定を反映
-
-```bash
-./update-ai-clis.sh sync my-project
-```
-
-### 2) PJフォルダで安全に運用（推奨）
-
-```bash
-cd /path/to/my-project
-/path/to/setupScript/update-ai-clis.sh project-init
-/path/to/setupScript/update-ai-clis.sh status-here
-/path/to/setupScript/update-ai-clis.sh sync-here
-```
-
-`project-init` では以下も自動作成されます:
-- `.ai-stack.local.json`（フォルダ固有設定）
-- `BACKLOG.md`（条件付きで後でやる案の管理）
-
-### 3) 変更内容を先に確認
-
-```bash
-./update-ai-clis.sh diff my-project
-./update-ai-clis.sh sync my-project --dry-run
-./update-ai-clis.sh reset my-project --dry-run
-```
-
-### 4) PJ固有スキルを3CLIへ共有
-
-```bash
-# 1件だけ共有
-./update-ai-clis.sh skill-share my-project-skill
-
-# ローカルスキルを一括共有
-./update-ai-clis.sh skill-share-all
-```
-
-## コマンド早見表
-
-- `init`: `ai-config/` の必須ファイルを作成
-- `sync`: レイヤーをマージして3CLIへ配布
-- `reset`: ベースへ戻す（設定 + skills/instructions 再配布 + MCPアンインストール処理）
-- `status`: 現在状態の可視化（layers、MCP数、skillsハッシュ等）
-- `check`: skills / global instructions のドリフト検知
-- `diff`: `sync` した場合の差分プレビュー
-- `all`: `update` + `sync`
-
-## 学びの扱い（kb と skill）
-
-- `kb` 更新はラフに速く進める
-  - `kb-candidate`: 事実・手順・知見の追記候補
-  - 承認後は `sync-knowledge` フローで更新
-- `skill` 更新は精査して進める
-  - `skill-candidate`: 繰り返す作業フローの候補
-  - 承認は草案作成まで。最終反映は再承認
-- 1セッションあたりの提案上限
-  - `kb-candidate` 最大1件
-  - `skill-candidate` 最大1件
-
-## 初見でハマりやすい点
-
-- `init` / `lock-base` は `setupScript` フォルダでのみ実行可能です（別フォルダで実行するとエラー）。
-- `sync/reset/status/check` は正本不足時に自動作成しません。最初に `init` が必要です。
-- 引数なしで `./update-ai-clis.sh` を実行すると `update` が走ります。
-- `sync/reset/diff/check/status` で `[project]` を省略した場合、フォルダローカル設定は `実行中ディレクトリ/.ai-stack.local.json` が使われます。
-- `check` は skills と global instructions の整合確認が対象です。MCP設定ファイル全体は比較しません。
-- `BACKLOG.md` は運用メモ用で、`sync/reset` でCLIに配布される設定ファイルではありません。
-
-## どのドキュメントを読むべきか
-
-- 全体概要: `README.md`
 - 詳細コマンド: `USAGE.md`
-- 実運用シナリオ: `USE_CASES.md`
-- レイヤー定義: `ai-config/README.md`
-- テスト: `tests/smoke.sh` / `tests/full-smoke.sh`
+- 運用例: `USE_CASES.md`
+- 全体方針: `README.md`

@@ -1,154 +1,104 @@
 # ユースケース集
 
-このドキュメントは、`setupScript` の日常運用を「何をするときに何を実行するか」で整理した実践ガイドです。
+`setupScript` を日常運用でどう使うかを、目的別に整理したガイドです。
 
-## 前提（重要）
+## 前提
 
-- 正本（マスター）: `setupScript/ai-config/`
-- 配布先（ランタイム）: `~/.claude/`, `~/.codex/`, `~/.gemini/`
-
-このプロジェクトは「`init` で正本を用意し、日常はPJ整合性を保つ」運用です。  
-`sync/reset/status/check` など通常コマンドは、正本不足時に自動作成しません（エラー終了）。
-
-補足:
-- `ai-config/base.json` は共通ベース（下位レイヤー）です。最優先設定ではありません。
-- PJで良かった内容を全体へ反映する場合、昇格は手動です（専用の `promote` コマンドはありません）。
+- 正本: `setupScript/ai-config/`
+- ランタイム配布先: `~/.claude/`, `~/.codex/`, `~/.gemini/`
+- PJから `~/` へ反映するのは `promote*` のみ（`sync-here` は確認専用）
 
 ## 1. 初回セットアップ（このPCで最初の1回）
 
 ```bash
-cd /root/mywork/setupScript
+cd <myCLI_setteing_root>
 ./update-ai-clis.sh init
-./update-ai-clis.sh sync
 ./update-ai-clis.sh status
 ```
 
-## 2. 新しいPJを開始する
+## 2. 新しいPJを開始
+
+```bash
+<myCLI_setteing_root>/update-ai-clis.sh project-init /path/to/my-project
+cd /path/to/my-project
+<myCLI_setteing_root>/update-ai-clis.sh sync-here
+```
+
+`project-init` は `.ai-stack.local.json` と `BACKLOG.md` を作り、差分プレビューを表示します。
+
+## 3. PJ設定を実際に反映
 
 ```bash
 cd /path/to/my-project
-/root/mywork/setupScript/update-ai-clis.sh project-init
-/root/mywork/setupScript/update-ai-clis.sh status-here
+<myCLI_setteing_root>/update-ai-clis.sh promote-here
+<myCLI_setteing_root>/update-ai-clis.sh status-here
 ```
 
-`project-init` は `.ai-stack.local.json` と `BACKLOG.md` を作成し、初回同期まで行います。
-
-## 3. 日常運用（推奨）
+## 4. 変更前に影響確認
 
 ```bash
-# PJフォルダで
-/root/mywork/setupScript/update-ai-clis.sh sync-here
-/root/mywork/setupScript/update-ai-clis.sh status-here
+<myCLI_setteing_root>/update-ai-clis.sh sync-here --dry-run
+<myCLI_setteing_root>/update-ai-clis.sh promote-here --dry-run
+<myCLI_setteing_root>/update-ai-clis.sh reset-here --dry-run
 ```
 
-変更前確認が必要なら:
+## 5. PJ固有スキルを3CLIへ昇格
 
 ```bash
-/root/mywork/setupScript/update-ai-clis.sh diff
-/root/mywork/setupScript/update-ai-clis.sh sync-here --dry-run
+<myCLI_setteing_root>/update-ai-clis.sh skill-promote /path/to/my-project/my-skill
 ```
 
-## 4. 復旧したいとき
+既存スキル名を共有する場合:
 
 ```bash
-/root/mywork/setupScript/update-ai-clis.sh reset-here --dry-run
-/root/mywork/setupScript/update-ai-clis.sh reset-here
+<myCLI_setteing_root>/update-ai-clis.sh skill-share my-project-skill
 ```
 
-## 5. PJ固有スキルを3CLIで使い回す（正本に入れない）
+## 6. ユーザ設定を完全初期化/復元
 
 ```bash
-# 1件共有
-/root/mywork/setupScript/update-ai-clis.sh skill-share my-project-skill
+# まず確認
+<myCLI_setteing_root>/update-ai-clis.sh wipe-user --dry-run
 
-# ローカルスキル一括共有
-/root/mywork/setupScript/update-ai-clis.sh skill-share-all
+# 完全削除
+<myCLI_setteing_root>/update-ai-clis.sh wipe-user
+
+# Git管理状態へ復元
+cd <myCLI_setteing_root>
+./update-ai-clis.sh reset-user
 ```
 
-補足:
-- `ai-config/skills` にある managed skill は `skill-share` 対象外です（`sync` で配布）。
+## 7. Gitで他メンバーと共有
 
-## 6. PJで作った設定/スキルを全体標準へ昇格する
-
-全PJに効かせたい内容は、PJローカルのままにせず正本へ反映します。
-
-1. 設定を正本へ移す  
-- 全体共通: `ai-config/base.json`  
-- PJ単位: `ai-config/projects/<project>.json`
-
-2. スキルを正本へ移す  
-- `ai-config/skills/<skill_name>/SKILL.md`
-
-3. `base.json` を更新した場合のみロック更新  
+共有するのは `ai-config/*`（正本）です。`~/.claude` などは各自ローカル実体なので、pull後に反映が必要です。
 
 ```bash
-cd /root/mywork/setupScript
-./update-ai-clis.sh lock-base
-```
-
-4. 全CLIへ配布  
-
-```bash
-./update-ai-clis.sh sync
-```
-
-## 7. Gitで他メンバーと共有する
-
-共有できるのは「正本（`ai-config/*`）」です。  
-各メンバーの `~/.claude` / `~/.codex` / `~/.gemini` はローカル実体なので、pull後に反映が必要です。
-
-```bash
-# 変更を共有する側
-git add ai-config README.md USAGE.md START_HERE.md USE_CASES.md
-git commit -m "Update master config"
+# 変更側
+git add ai-config README.md START_HERE.md USAGE.md USE_CASES.md
+git commit -m "Update ai config docs"
 git push
 ```
 
 ```bash
-# 受け取る側
+# 受け取り側
 git pull
-cd /root/mywork/setupScript
-./update-ai-clis.sh init   # 初回のみ
-./update-ai-clis.sh sync
+cd <myCLI_setteing_root>
+./update-ai-clis.sh reset-user
 ```
 
-## 8. 正本不足のチェック
-
-日常コマンドで検出できます（不足時はエラー終了）。
+## 8. ドリフト検査
 
 ```bash
-cd /root/mywork/setupScript
-./update-ai-clis.sh status
-# または
-./update-ai-clis.sh sync --dry-run
+cd <myCLI_setteing_root>
+./update-ai-clis.sh check
 ```
 
-個別確認する場合:
+## 9. 3CLI配布先へ反映（skills含む）
+
+- 正本変更後は `promote` か `reset-user` で反映する。
+- PJ文脈での `sync` / `sync-here` は配布反映しないため、配布目的なら使わない。
 
 ```bash
-cd /root/mywork/setupScript
-for p in \
-  ai-config/base.json \
-  ai-config/base.lock.sha256 \
-  ai-config/codex-base.toml \
-  ai-config/projects \
-  ai-config/skills
-do
-  [[ -e "$p" ]] || echo "MISSING: $p"
-done
+cd <myCLI_setteing_root>
+./update-ai-clis.sh promote
 ```
-
-## 9. 正本不足の修復
-
-```bash
-cd /root/mywork/setupScript
-./update-ai-clis.sh init
-```
-
-`base.json` を意図的に編集した場合のみ、続けて:
-
-```bash
-./update-ai-clis.sh lock-base
-```
-
-意図しない変更なら Git から戻してから実行してください。
