@@ -34,6 +34,22 @@ AI CLI運用（Claude/Codex/Gemini）向けの統合スクリプト置き場で�
 詳細な実行例は `USAGE.md` を参照してください。初学者向けの導入は `START_HERE.md` にまとめています。  
 実運用の具体例は `USE_CASES.md` に整理しています。
 
+## 利用者イメージ（運用フロー）
+
+1. 初回セットアップ（このPCで1回）
+   - `git clone` 後に `./update-ai-clis.sh init` と `./update-ai-clis.sh sync` を実行し、`~/.claude` / `~/.codex` / `~/.gemini` に反映します。
+2. PJごとの日常運用
+   - PJフォルダで `project-init` を実行し、以後は `sync-here` / `status-here` を使います。
+3. PJ固有スキルの共有
+   - 正本に入れない場合は `skill-share` / `skill-share-all` で3CLI間のみ共有します。
+4. 全体標準への昇格
+   - 昇格は手動です（専用の `promote` コマンドはありません）。`ai-config/*` を更新して `sync` で反映します。
+5. チーム共有
+   - 共有対象は Git 上の正本（`ai-config/*`）です。受け手側は `git pull` 後に `sync`（初回は `init`）を実行します。
+
+補足:
+- `ai-config/base.json` は「最優先」ではなく共通ベース（下位レイヤー）です。上位レイヤーは `USAGE.md` の「レイヤー優先順」を参照してください。
+
 ## 対話UI（メニュー）
 
 初心者や共有利用向けに、`update-ai-clis.sh` を対話メニューで呼び出すラッパーを用意しています。

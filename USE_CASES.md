@@ -10,6 +10,10 @@
 このプロジェクトは「`init` で正本を用意し、日常はPJ整合性を保つ」運用です。  
 `sync/reset/status/check` など通常コマンドは、正本不足時に自動作成しません（エラー終了）。
 
+補足:
+- `ai-config/base.json` は共通ベース（下位レイヤー）です。最優先設定ではありません。
+- PJで良かった内容を全体へ反映する場合、昇格は手動です（専用の `promote` コマンドはありません）。
+
 ## 1. 初回セットアップ（このPCで最初の1回）
 
 ```bash
@@ -88,7 +92,27 @@ cd /root/mywork/setupScript
 ./update-ai-clis.sh sync
 ```
 
-## 7. 正本不足のチェック
+## 7. Gitで他メンバーと共有する
+
+共有できるのは「正本（`ai-config/*`）」です。  
+各メンバーの `~/.claude` / `~/.codex` / `~/.gemini` はローカル実体なので、pull後に反映が必要です。
+
+```bash
+# 変更を共有する側
+git add ai-config README.md USAGE.md START_HERE.md USE_CASES.md
+git commit -m "Update master config"
+git push
+```
+
+```bash
+# 受け取る側
+git pull
+cd /root/mywork/setupScript
+./update-ai-clis.sh init   # 初回のみ
+./update-ai-clis.sh sync
+```
+
+## 8. 正本不足のチェック
 
 日常コマンドで検出できます（不足時はエラー終了）。
 
@@ -114,7 +138,7 @@ do
 done
 ```
 
-## 8. 正本不足の修復
+## 9. 正本不足の修復
 
 ```bash
 cd /root/mywork/setupScript

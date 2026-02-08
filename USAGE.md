@@ -153,6 +153,13 @@ cd /root/mywork/my-new-project
 - `skill-share-all`: ローカルスキル（managed以外）をまとめて共有
 - 同名スキルに差分がある場合は、更新時刻が最も新しいコピーを優先
 
+## PJで良かった内容を全体へ昇格する
+
+- 昇格は手動運用です（`promote` 専用コマンドはありません）。
+- 設定は `ai-config/projects/<project>.json` または `ai-config/base.json` に反映します。
+- スキルは `ai-config/skills/<skill_name>/SKILL.md` に反映します。
+- `base.json` を更新した場合のみ `lock-base` を実行し、その後 `sync` で全CLIに再配布します。
+
 ## グローバル指示の共通配布
 
 レイヤー化された指示ファイルを連結して配布します:
