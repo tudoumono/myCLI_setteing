@@ -1,6 +1,6 @@
 ---
 name: kb-frontend
-description: フロントエンド開発のナレッジ。React/Tailwind/SSE/Amplify UI/zustand/dnd-kit等
+description: React/Tailwind中心のフロントエンド実装知見を参照・追記する。UI状態管理、モバイル対応、SSE表示、Amplify UI連携に使う
 user-invocable: true
 ---
 
@@ -795,4 +795,3 @@ Next.js では `tailwind.config.ts` 不要。`globals.css` で直接テーマ定
 **ポイント**:
 - `@theme inline` は CSS変数として出力（Viteの `@theme` と同等）
 - `tailwind.config.ts` は作成しない（v4では非推奨）
-

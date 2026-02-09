@@ -32,17 +32,18 @@
 
 | スキル | 内容 |
 |--------|------|
-| `/kb-strands-agentcore` | Strands Agents + Bedrock AgentCore（エージェント開発、CDK、Observability） |
-| `/kb-amplify-cdk` | Amplify Gen2 + CDK（sandbox、本番デプロイ、Hotswap） |
-| `/kb-api-patterns` | API設計・SSEストリーミング・外部API連携（モック設計、キャッシュ、Google Sheets連携） |
-| `/kb-frontend` | フロントエンド（React、Tailwind、SSE、Amplify UI） |
-| `/draw-architecture` | AWSアーキテクチャ図生成（diagramsライブラリ + カスタムアイコン） |
-| `/kb-troubleshooting` | トラブルシューティング集（AWS、フロントエンド、Python、LLMアプリ）|
-| `/kb-project-authoring` | プロジェクトの学びを再利用可能な `kb-*` スタイルに整理・作成する |
-| `/skill-discovery` | 作業完了時に再利用パターンを検知し、`kb-candidate` / `skill-candidate` を提案する |
-| `/sync-docs` | 実装とドキュメントの差異を調査し、ドキュメントを実装に合わせて更新する |
-| `/sync-knowledge` | プロジェクトで得た学びをグローバルナレッジベースへ反映する |
-| `/sync-settings` | Claude Code共通設定（skills/CLAUDE.md/mcpServers）をGitHubリポジトリへ同期する |
-| `/backlog-manager` | 「今はやらないが後で検討したい」項目を `BACKLOG.md` に構造化して管理する |
+| `/kb-strands-agentcore` | Strands Agents と Bedrock AgentCore の実装知見を参照・追記する（ツール定義、CDK構成、Observability、運用トラブル対応） |
+| `/kb-amplify-cdk` | Amplify Gen2 と CDK の実装知見を参照・追記する（sandbox運用、本番デプロイ、環境分岐、Dockerビルド、Hotswap判断） |
+| `/kb-api-patterns` | API設計とストリーミング実装の知見を参照・追記する（SSE処理、外部API連携、モック設計、キャッシュ、エラーハンドリング） |
+| `/kb-frontend` | React/Tailwind中心のフロントエンド実装知見を参照・追記する（UI状態管理、モバイル対応、SSE表示、Amplify UI連携） |
+| `/draw-architecture` | AWS構成を diagrams(Python) と同梱カスタムアイコンで図示し、PNGを生成する（依存確認、レイアウト調整、出力検証） |
+| `/kb-troubleshooting` | AWS、フロントエンド、Python、LLMアプリの障害対応知見を参照・追記する（症状→原因→解決の再現可能な手順整理） |
+| `/kb-project-authoring` | プロジェクトで得た学びを再利用可能な `kb-*` 形式へ再構成する（分類、重複整理、汎用化、SKILL.md への落とし込み） |
+| `/skill-discovery` | ナレッジ更新フローの起点として作業完了時に実行する（`kb-candidate` / `skill-candidate` 提案、承認後 `sync-knowledge` 接続） |
+| `/sync-docs` | 実装コードを正としてドキュメントとの差分を検出・修正する（計画書/仕様書更新、進捗表・構成・設定値の整合確認） |
+| `/sync-knowledge` | `skill-discovery` 承認後に実行し、学びを `kb-*` へ反映する（既存KB追記、新規KB作成、振り分けテーブル整理） |
+| `/sync-settings` | Claude/Codex/Gemini 向け共通設定を GitHub 正本へ同期する（skills、agents、CLAUDE.md、mcpServers、settings一部の Push/Pull） |
+| `/backlog-manager` | 実装中に出た「今はやらないが後で検討する項目」を `BACKLOG.md` に構造化して管理する（保留追加、再開トリガー、完了移動、KB連携） |
 
 プロジェクト固有でない汎用的な学びを得たら `/sync-knowledge` で追記する。
+推奨フローは `/skill-discovery` → 承認 → `/sync-knowledge` → 必要に応じて `/sync-settings`。

@@ -1,6 +1,6 @@
 ---
 name: kb-project-authoring
-description: プロジェクトで得た学びを再利用可能な kb-* スタイルのスキルとして作成・更新する。トラブルシュート記録、実装パターン、アーキテクチャ判断、フレームワーク固有の注意点を整理し、将来の再利用に向けて /root/.codex/skills 配下の構造化された SKILL.md に落とし込む。
+description: プロジェクトで得た学びを再利用可能な kb-* 形式へ再構成する。分類、重複整理、汎用化、SKILL.md への落とし込みに使う
 ---
 
 # Project KB Authoring

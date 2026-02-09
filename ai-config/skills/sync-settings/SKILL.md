@@ -1,6 +1,6 @@
 ---
 name: sync-settings
-description: Claude Codeの共通設定（skills、CLAUDE.md、mcpServers）をGitHubリポジトリと双方向同期する
+description: Claude/Codex/Gemini 向け共通設定を GitHub 正本へ同期する。skills、agents、CLAUDE.md、mcpServers、settings一部の Push/Pull に使う
 user-invocable: true
 ---
 

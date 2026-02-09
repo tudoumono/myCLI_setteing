@@ -1,6 +1,6 @@
 ---
 name: kb-api-patterns
-description: API設計・SSEストリーミング・外部API連携のナレッジ。モック設計、キャッシュ、Google Sheets連携等
+description: API設計とストリーミング実装の知見を参照・追記する。SSE処理、外部API連携、モック設計、キャッシュ、エラーハンドリングに使う
 user-invocable: true
 ---
 

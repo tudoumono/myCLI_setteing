@@ -1,6 +1,6 @@
 ---
 name: kb-strands-agentcore
-description: Strands Agents + Bedrock AgentCore のナレッジ。エージェント開発、ツール定義、CDK、Observability等
+description: Strands Agents と Bedrock AgentCore の実装知見を参照・追記する。ツール定義、CDK構成、Observability、運用トラブル対応に使う
 user-invocable: true
 ---
 

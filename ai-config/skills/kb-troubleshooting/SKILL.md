@@ -1,6 +1,6 @@
 ---
 name: kb-troubleshooting
-description: トラブルシューティング集。AWS/フロントエンド/Python/LLMアプリの問題解決
+description: AWS、フロントエンド、Python、LLMアプリの障害対応知見を参照・追記する。症状→原因→解決の再現可能な手順整理に使う
 user-invocable: true
 ---
 
@@ -828,4 +828,3 @@ parse @message /"session\.id":\s*"(?<sid>[^"]+)"/
 | filter ispresent(sid)
 | stats count_distinct(sid) as sessions
 ```
-

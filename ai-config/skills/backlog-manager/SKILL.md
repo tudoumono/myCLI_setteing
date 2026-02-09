@@ -1,6 +1,6 @@
 ---
 name: backlog-manager
-description: PJ開発で「今はやらないが後で検討したい項目」を BACKLOG.md に構造化して記録・更新する。トリガー条件、完了移動、学びのKB反映まで管理する
+description: 実装中に出た「今はやらないが後で検討する項目」を BACKLOG.md に構造化して管理する。保留追加、再開トリガー設定、完了移動、学びのKB連携に使う
 user-invocable: true
 ---
 

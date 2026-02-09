@@ -1,6 +1,6 @@
 ---
 name: draw-architecture
-description: AWSアーキテクチャ図を生成する。diagrams(Python)ライブラリ + カスタムアイコンでPNG出力
+description: AWS構成を diagrams(Python) と同梱カスタムアイコンで図示し、PNGを生成する。依存確認、レイアウト調整、出力検証まで一貫して行う
 user-invocable: true
 ---
 

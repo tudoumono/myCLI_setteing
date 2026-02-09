@@ -1,6 +1,6 @@
 ---
 name: skill-discovery
-description: 作業完了時に再利用可能なパターンを検知し、kb-candidate（高速）とskill-candidate（精査）を分けて提案する。承認後のみ更新フローへ接続する。
+description: ナレッジ更新フローの起点として作業完了時に実行する。再利用パターンを kb-candidate と skill-candidate で提案し、承認後に sync-knowledge へ接続する
 user-invocable: true
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: kb-amplify-cdk
-description: Amplify Gen2 + CDK のナレッジ。sandbox管理、本番デプロイ、Hotswap等
+description: Amplify Gen2 と CDK の実装知見を参照・追記する。sandbox運用、本番デプロイ、環境分岐、Dockerビルド、Hotswap判断に使う
 user-invocable: true
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: sync-knowledge
-description: プロジェクトで得た学びをグローバルナレッジベース（/root/.claude/skills/kb-*/）に反映する。既存KBへの追記・新規KB作成の両方に対応
+description: skill-discovery 承認後に実行し、学びを kb-* へ反映する。既存KB追記、新規KB作成、振り分けテーブルに基づく整理に使う
 user-invocable: true
 ---
 
