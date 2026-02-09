@@ -648,9 +648,13 @@ CMD ["opentelemetry-instrument", "python", "agent.py"]
 
 ---
 
-## FPDF2でPDF生成（日本語対応）
+## AgentCoreプロジェクトで使う周辺パターン
 
-### 日本語フォント（NotoSansCJKjp）
+以下はAgentCore固有の機能ではないが、AgentCoreプロジェクトでよく使うパターン。
+
+### FPDF2でPDF生成（日本語対応）
+
+#### 日本語フォント（NotoSansCJKjp）
 
 日本語PDFを生成する場合、CJKフォントが必要。NotoSansCJKjpを使用：
 
@@ -675,7 +679,7 @@ class MyPDF(FPDF):
         self.add_font("NotoSansCJKjp", style="B", fname="/app/fonts/NotoSansCJKjp-Bold.ttf")
 ```
 
-### S3への保存と署名付きURL
+#### S3への保存と署名付きURL
 
 ```python
 from botocore.config import Config
@@ -704,14 +708,14 @@ download_url = s3_presigned.generate_presigned_url(
 )
 ```
 
-### 注意点
+#### 注意点
 - GitHubからフォントをcurlでダウンロードする場合、`-L`オプション必須（リダイレクト対応）
 - apt-getでfonts-noto-cjkをインストールするとTTC形式になりFPDF2で追加設定が必要
 - **プロジェクトにフォントファイルを含めてCOPYするのが最も確実**
 
 ---
 
-## 外部APIキーの複数フォールバックパターン
+### 外部APIキーの複数フォールバックパターン
 
 レートリミットのある外部API（Tavily等）を使う場合、複数のAPIキーを環境変数に設定し、エラー時に自動で次のキーに切り替える方式が有効。
 

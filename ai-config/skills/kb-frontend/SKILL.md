@@ -1,12 +1,32 @@
 ---
 name: kb-frontend
-description: フロントエンド開発のナレッジ。React/Tailwind/SSE/Amplify UI等（Marpは /kb-marp）
+description: フロントエンド開発のナレッジ。React/Tailwind/SSE/Amplify UI/zustand/dnd-kit等
 user-invocable: true
 ---
 
 # フロントエンド開発パターン
 
 React/TypeScript/Tailwindを使ったフロントエンド開発の学びを記録する。
+
+> **関連スキル**: SSE/API設計は `/kb-api-patterns`、トラブルシューティングは `/kb-troubleshooting`、Amplify/CDKは `/kb-amplify-cdk` を参照。
+
+## 目次
+
+- [Tailwind CSS v4](#tailwind-css-v4)
+- [React ストリーミングUI](#react-ストリーミングui)
+- [モバイルUI対応（iOS Safari）](#モバイルui対応ios-safari)
+- [Amplify UI React](#amplify-ui-react)
+- [ステータス表示パターン](#ステータス表示パターン)
+- [疑似ストリーミング表示](#疑似ストリーミング表示)
+- [非同期コールバック内でのエラーハンドリング](#非同期コールバック内でのエラーハンドリング)
+- [OGP/Twitterカード設定](#ogptwitterカード設定)
+- [Tailwind CSS Tips](#tailwind-css-tips)
+- [モーダルの状態管理パターン](#モーダルの状態管理パターン)
+- [@dnd-kit パターン](#dnd-kit-パターン)
+- [zustand パターン](#zustand-パターン)
+- [Tailwind CSS v4 + Next.js](#tailwind-css-v4--nextjs)
+
+---
 
 ## Tailwind CSS v4
 
@@ -182,190 +202,6 @@ function Dropdown() {
 - `mousedown` だけでなく `touchstart` も必要（iOS対応）
 - `active:bg-gray-200` でタップ時のフィードバックを追加
 - メニュー選択後は `setIsOpen(false)` で閉じる
-
-## SSEストリーミング処理
-
-### 基本パターン
-```typescript
-const reader = response.body?.getReader();
-const decoder = new TextDecoder();
-let buffer = '';
-
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
-
-  buffer += decoder.decode(value, { stream: true });
-  const lines = buffer.split('\n');
-  buffer = lines.pop() || '';  // 不完全な行は次回に持ち越し
-
-  for (const line of lines) {
-    if (line.startsWith('data: ')) {
-      const data = line.slice(6);
-      if (data === '[DONE]') return;
-      try {
-        const event = JSON.parse(data);
-        handleEvent(event);
-      } catch {
-        // JSONパースエラーは無視
-      }
-    }
-  }
-}
-```
-
-### イベントハンドリング
-```typescript
-function handleEvent(event) {
-  // APIによってcontent/dataのどちらかにペイロードが入る
-  const textValue = event.content || event.data;
-
-  switch (event.type) {
-    case 'text':
-      onText(textValue);
-      break;
-    case 'tool_use':
-      onToolUse(textValue);  // ツール名が返る
-      break;
-    case 'markdown':
-      onMarkdown(textValue);
-      break;
-    case 'error':
-      onError(new Error(event.error || event.message || textValue));
-      break;
-  }
-}
-```
-
-### エラーハンドリング
-```typescript
-// ストリーミング中のエラー
-case 'error':
-  if (event.error || event.message) {
-    callbacks.onError(new Error(event.error || event.message));
-  }
-  break;
-
-// HTTPエラー
-const response = await fetch(url, options);
-if (!response.ok) {
-  throw new Error(`API Error: ${response.status} ${response.statusText}`);
-}
-```
-
-### アイドルタイムアウト（2段構成）
-
-SSEストリームに2段階のタイムアウトを設定し、接続障害と推論ハングの両方を検知するパターン：
-
-```typescript
-async function readSSEStream(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-  onEvent: (event: Record<string, unknown>) => void,
-  idleTimeoutMs?: number,          // 初回イベント受信前（短め: 10秒）
-  ongoingIdleTimeoutMs?: number    // イベント間（長め: 60秒）
-): Promise<void> {
-  let firstEventReceived = false;
-
-  while (true) {
-    // フェーズに応じてタイムアウト値を切り替え
-    const currentTimeout = firstEventReceived ? ongoingIdleTimeoutMs : idleTimeoutMs;
-    if (currentTimeout) {
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new SSEIdleTimeoutError(currentTimeout)), currentTimeout);
-      });
-      readResult = await Promise.race([reader.read(), timeoutPromise]);
-    } else {
-      readResult = await reader.read();
-    }
-    // ... イベント処理後に firstEventReceived = true
-  }
-}
-```
-
-| フェーズ | タイムアウト | 検知対象 |
-|---------|------------|---------|
-| 初回イベント受信前 | 短め（10秒） | スロットリング、接続エラー |
-| イベント間（初回受信後） | 長め（60秒） | 推論ハング、モデル無応答 |
-
-**設計ポイント**:
-- 初回タイムアウトは短く → ユーザーを素早くエラーに気づかせる
-- イベント間タイムアウトは長めに → 正常な推論やツール実行を妨げない
-- 通常のストリーミングではチャンクが頻繁に来るため、60秒無音は異常と判断できる
-
-### モック実装（ローカル開発用）
-
-```typescript
-export async function invokeAgentMock(prompt, callbacks) {
-  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-  // 思考過程をストリーミング
-  const thinkingText = `${prompt}について考えています...`;
-  for (const char of thinkingText) {
-    callbacks.onText(char);
-    await sleep(20);
-  }
-
-  callbacks.onStatus('生成中...');
-  await sleep(1000);
-
-  callbacks.onMarkdown('# 生成結果\n\n...');
-  callbacks.onComplete();
-}
-
-// 環境変数で切り替え
-const useMock = import.meta.env.VITE_USE_MOCK === 'true';
-const invoke = useMock ? invokeAgentMock : invokeAgent;
-```
-
-### PDF生成（Base64デコード・ダウンロード）
-
-```typescript
-export async function exportPdf(markdown: string): Promise<Blob> {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { /* 認証ヘッダー等 */ },
-    body: JSON.stringify({ action: 'export_pdf', markdown }),
-  });
-
-  const reader = response.body?.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        const event = JSON.parse(line.slice(6));
-        if (event.type === 'pdf' && event.data) {
-          // Base64デコードしてBlobを返す
-          const binaryString = atob(event.data);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          return new Blob([bytes], { type: 'application/pdf' });
-        }
-      }
-    }
-  }
-  throw new Error('PDF生成に失敗しました');
-}
-
-// ダウンロード処理
-const blob = await exportPdf(markdown);
-const url = URL.createObjectURL(blob);
-const a = document.createElement('a');
-a.href = url;
-a.download = 'slide.pdf';
-a.click();
-URL.revokeObjectURL(url);
-```
 
 ## Amplify UI React
 
@@ -672,16 +508,6 @@ onError: (error) => {
 
 **理由**: `onError`は`invokeAgent`内部の`try-catch`で呼ばれるため、その中で`throw`してもinvokeAgentのPromiseは正常に解決される。
 
-## 環境変数の読み込み（.env vs .env.local）
-
-| フレームワーク/ツール | .env | .env.local | 備考 |
-|-----------|------|-----------|------|
-| Vite | ○ | ○ | 両方読む（優先度: .env.local > .env） |
-| Next.js | ○ | ○ | 両方読む |
-| **Node.js dotenv** | ○ | × | `.env` のみ |
-
-Amplify CDK（`import 'dotenv/config'`）とViteの両方で使う場合は **`.env`** に統一する。
-
 ## OGP/Twitterカード設定
 
 ### 推奨設定（summaryカード）
@@ -830,3 +656,143 @@ const handleConfirm = async () => {
   }
 };
 ```
+
+## @dnd-kit パターン
+
+### タップ vs ドラッグの判定（モバイル対応）
+
+タップで要素を移動 + 長押しでドラッグ並べ替えを共存させるパターン。`activationConstraint` の `delay` と `tolerance` で判定を分離する。
+
+```typescript
+import { PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
+
+const sensors = useSensors(
+  useSensor(PointerSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+  useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+);
+```
+
+- **delay: 200** → 200ms未満のタッチ = タップ（onClick発火）、200ms以上ホールド = ドラッグ開始
+- **tolerance: 5** → 5px以内の移動はドラッグとみなさない（指のブレ防止）
+- タップ操作は `onClick` で処理、ドラッグは `DndContext.onDragEnd` で処理
+
+### SortableContext + レイアウト切替
+
+`blockMode` 等のフラグでソート方向を切り替えるパターン:
+
+```tsx
+import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy } from "@dnd-kit/sortable";
+
+<SortableContext
+  items={blocks.map(b => b.id)}
+  strategy={isLineMode ? verticalListSortingStrategy : horizontalListSortingStrategy}
+>
+  <div className={isLineMode ? "flex flex-col gap-2" : "flex flex-wrap gap-2"}>
+    {blocks.map(block => (
+      <SortableItem key={block.id} id={block.id} isLineMode={isLineMode} />
+    ))}
+  </div>
+</SortableContext>
+```
+
+### useSortable ラッパーコンポーネント
+
+既存コンポーネントをDnD対応にするラッパー:
+
+```tsx
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+function SortableItem({ id, disabled, isLineMode, onClick, children }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+    zIndex: isDragging ? 50 : undefined,
+    width: isLineMode ? "100%" : undefined,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="touch-none">
+      <div onClick={onClick}>{children}</div>
+    </div>
+  );
+}
+```
+
+**ポイント**:
+- `CSS.Translate.toString` を使う（`CSS.Transform.toString` だとスケールも含まれる）
+- `touch-none` でドラッグエリアのスクロール干渉を防止
+- `isDragging` 時に `opacity` と `zIndex` でビジュアルフィードバック
+
+## zustand パターン
+
+### persist + SSR安全な永続化
+
+Next.js等のSSR環境で `localStorage` を使う場合、`createJSONStorage` で安全にラップする:
+
+```typescript
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+
+interface MyStore {
+  count: number;
+  increment: () => void;
+}
+
+export const useMyStore = create<MyStore>()(
+  persist(
+    (set) => ({
+      count: 0,
+      increment: () => set((state) => ({ count: state.count + 1 })),
+    }),
+    {
+      name: "my-store",
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);
+```
+
+**ポイント**:
+- `createJSONStorage(() => localStorage)` → SSR時に `localStorage` が `undefined` でもエラーにならない
+- `version` フィールドを含めると、スキーマ変更時の `migrate` 関数でマイグレーション可能
+
+### arrayMove で配列の並び替え
+
+zustand ストア内で `@dnd-kit/sortable` の `arrayMove` を使う:
+
+```typescript
+import { arrayMove } from "@dnd-kit/sortable";
+
+reorderItems: (oldIndex: number, newIndex: number) => {
+  set((state) => ({
+    items: arrayMove(state.items, oldIndex, newIndex),
+  }));
+},
+```
+
+## Tailwind CSS v4 + Next.js
+
+### テーマ定義（@theme inline）
+
+Next.js では `tailwind.config.ts` 不要。`globals.css` で直接テーマ定義:
+
+```css
+/* src/app/globals.css */
+@import "tailwindcss";
+
+@theme inline {
+  --color-primary-50: #eff6ff;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --font-sans: "MyFont", system-ui, sans-serif;
+}
+```
+
+使用: `text-primary-500`, `bg-primary-50`, `font-sans`
+
+**ポイント**:
+- `@theme inline` は CSS変数として出力（Viteの `@theme` と同等）
+- `tailwind.config.ts` は作成しない（v4では非推奨）
+

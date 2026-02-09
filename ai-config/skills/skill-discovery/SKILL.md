@@ -54,8 +54,8 @@ user-invocable: true
    - 各候補に「症状/原因/手順/検証」を1行ずつメモ
 
 2. **重複チェック**
-   - `kb-candidate` は `/root/.codex/skills/kb-*/SKILL.md` を確認し、同等内容が既にないか確認
-   - `skill-candidate` は `/root/.codex/skills/*/SKILL.md` を確認し、同等フローの既存スキルがないか確認
+   - `kb-candidate` は `/root/.claude/skills/kb-*/SKILL.md` を確認し、同等内容が既にないか確認
+   - `skill-candidate` は `/root/.claude/skills/*/SKILL.md` を確認し、同等フローの既存スキルがないか確認
    - 同等内容がある候補は破棄
 
 3. **候補の絞り込みとレート制限**
@@ -69,11 +69,10 @@ user-invocable: true
      - `[skill-candidate] <name> | target: <new-skill or existing skill refinement> | reason: <再利用根拠>`
 
 5. **承認後の処理**
-   - `kb-candidate` が承認された場合:
-     - `/root/.codex/skills/sync-knowledge/SKILL.md` の手順に従う
-   - `skill-candidate` が承認された場合:
-     - `/root/.codex/skills/kb-project-authoring/SKILL.md` の手順に従う
-     - まず草案（構成・追記候補・差分方針）を提示し、最終反映前に再承認を取る
+   - `kb-candidate` / `skill-candidate` いずれも:
+     - `/root/.claude/skills/sync-knowledge/SKILL.md` の手順に従う
+     - 振り分けテーブルに従って正しいKBに追記または新規作成
+     - `skill-candidate` の場合はまず草案を提示し、最終反映前に再承認を取る
 
 6. **却下時の処理**
    - 却下された場合は何もしない

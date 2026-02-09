@@ -8,6 +8,8 @@ user-invocable: true
 
 プロジェクト横断で遭遇した問題と解決策を記録する。
 
+> **関連スキル**: 実装パターンは `/kb-frontend`、Amplify/CDKは `/kb-amplify-cdk`、AgentCoreは `/kb-strands-agentcore` を参照。
+
 ## AWS関連
 
 ### Cognito認証: client_id mismatch
@@ -199,6 +201,76 @@ aws bedrock-agent delete-knowledge-base --knowledge-base-id KB_ID
 
 **解決策**: `npx ampx sandbox` を実行
 
+### Amplify Console: SSR環境変数が undefined
+
+**症状**: Amplify Consoleの「Environment variables」で設定した変数が、Next.js API Route（SSR）のランタイムで `undefined` になる
+
+**原因**: Amplify Consoleの環境変数はビルド時のシェル環境に注入されるが、SSRランタイムには自動で渡されない場合がある
+
+**解決策**: `amplify.yml` の preBuild フェーズで `.env.production` を生成する
+
+```yaml
+preBuild:
+  commands:
+    - rm -f .env.production
+    - touch .env.production
+    - '[ -n "${MY_API_KEY:-}" ] && printf "MY_API_KEY=%s\n" "$MY_API_KEY" >> .env.production || true'
+```
+
+詳細は `/kb-amplify-cdk` の「SSR環境変数が読めない問題」を参照。
+
+### Next.js SSR: モジュールトップレベルの process.env が undefined
+
+**症状**: API Route内で `process.env.MY_KEY` が `undefined` になる。ローカル開発では動く。
+
+**原因**: Next.jsはビルド時に `process.env.KEY` をインライン化（静的置換）する。モジュールのトップレベルで評価されると、ビルド時の値（未設定 = `undefined`）が埋め込まれる。
+
+**解決策1**: 関数内で評価する（リクエストごとに実行される）
+
+```typescript
+// NG: モジュールトップレベルで評価 → ビルド時にインライン化される
+const apiKey = process.env.MY_API_KEY;
+
+export async function GET() {
+  // apiKey は undefined（ビルド時の値が埋め込まれている）
+}
+
+// OK: 関数内で評価 → リクエストごとにランタイムで読み取り
+export async function GET() {
+  const apiKey = process.env.MY_API_KEY;  // ランタイムで評価される
+}
+```
+
+**解決策2**: ブラケット記法で静的最適化を回避
+
+```typescript
+// NG: ドット記法 → Next.js がビルド時にインライン化
+const key = process.env.MY_API_KEY;
+
+// OK: ブラケット記法 → Next.js の静的最適化をバイパス
+const key = process.env["MY_API_KEY"];
+```
+
+**解決策3**: 設定ファイルで関数化して遅延評価
+
+```typescript
+// config.ts
+export function getApiKey(): string | null {
+  const key = process.env["MY_API_KEY"]?.trim();
+  if (!key || key === "your_key_here") return null;
+  return key;
+}
+
+// route.ts
+export async function GET() {
+  const key = getApiKey();  // リクエスト時に評価
+  if (!key) return mockResponse();
+  // ...
+}
+```
+
+**ポイント**: `process.env["KEY"]` のブラケット記法は、Next.jsのビルド時インライン化を防ぐテクニック。ランタイムで確実に環境変数を読み取りたい場合に使う。
+
 ### Amplify Console: CDK failed to publish assets
 
 **症状**: `[CDKAssetPublishError] CDK failed to publish assets`
@@ -243,40 +315,6 @@ aws amplify update-app \
 2. Build image → Custom Build Image を選択
 3. イメージ名: `public.ecr.aws/codebuild/amazonlinux-x86_64-standard:5.0`
 
-### Amplify Hosting + Next.js: API Route が常に mock フォールバックする
-
-**症状**: 本番で `GET /api/problems?refresh=true` が常に `"source":"mock"` を返す（ローカルではSheets接続できる）
-
-**原因**:
-- Hosting の環境変数が Next.js API Route（SSRランタイム）で期待通り読めていない
-- `process.env` 判定をモジュールトップレベルで固定していると、期待しない値でキャッシュされる場合がある
-
-**解決策**:
-1. `process.env` 判定をリクエストハンドラ内で評価する
-2. Amplify build で `.env.production` を生成し、SSRで必要な環境変数を明示的に書き込む
-
-```yaml
-# amplify.yml (preBuild)
-- rm -f .env.production
-- touch .env.production
-- '[ -n "${GOOGLE_SHEETS_ID:-}" ] && printf "GOOGLE_SHEETS_ID=%s\n" "$GOOGLE_SHEETS_ID" >> .env.production || true'
-- '[ -n "${GOOGLE_SERVICE_ACCOUNT_KEY:-}" ] && printf "GOOGLE_SERVICE_ACCOUNT_KEY=%s\n" "$GOOGLE_SERVICE_ACCOUNT_KEY" >> .env.production || true'
-```
-
-```typescript
-// Next.js route handler
-export async function GET() {
-  const isMockMode = !process.env["GOOGLE_SHEETS_ID"];
-  // ...
-}
-```
-
-**Verification**:
-```bash
-curl -sS "https://<your-domain>/api/problems?refresh=true"
-# 期待: {"source":"sheets", ...}
-```
-
 ### LINE Push Message: 429 月間メッセージ上限
 
 **症状**: Push Message送信時に429エラー `{"message":"You have reached your monthly limit."}`
@@ -292,6 +330,20 @@ curl -sS "https://<your-domain>/api/problems?refresh=true"
 **補足**: レート制限（2,000 req/s）とは別物。`Retry-After`ヘッダーは返されない。LINE公式は429を「リトライすべきでない4xx」に分類。
 
 ## フロントエンド関連
+
+### Next.js 16: create-next-app でディレクトリ名エラー
+
+**症状**: `npx create-next-app@latest ./MyProject` でnpm naming restrictionエラー
+
+**原因**: ディレクトリ名に大文字が含まれるとnpmのパッケージ名バリデーションに引っかかる
+
+**解決策**: `/tmp`で小文字名で作成し、目的のディレクトリにコピー
+
+```bash
+cd /tmp && npx create-next-app@latest myproject --typescript --tailwind --eslint --app --src-dir
+cp -r /tmp/myproject/* /path/to/MyProject/
+cp -r /tmp/myproject/.* /path/to/MyProject/ 2>/dev/null
+```
 
 ### OGP/Twitterカード: 画像が表示されない
 
@@ -329,6 +381,8 @@ curl -sS "https://<your-domain>/api/problems?refresh=true"
 
 ### React StrictMode: 文字がダブって表示される
 
+> 実装パターンの詳細は `/kb-frontend` の「イミュータブル更新（必須）」を参照。
+
 **症状**: ストリーミングUIで文字が2回表示される
 
 **原因**: StrictModeで2回実行される際、シャローコピーしたオブジェクトを直接変更していた
@@ -349,10 +403,6 @@ setMessages(prev =>
   )
 );
 ```
-
-### Marp関連
-
-Marp関連のトラブルシューティングは `/kb-marp` スキルを参照してください。
 
 ### SSE: チャットの吹き出しが空のまま
 
@@ -418,10 +468,6 @@ idx === prev.length - 1 && msg.role === 'assistant'
 ```bash
 uv add 'botocore[crt]'
 ```
-
-### Marp CLI関連
-
-Marp CLI関連のトラブルシューティング（PDF出力エラー、日本語文字化け、テーマ設定等）は `/kb-marp` スキルを参照してください。
 
 ## SNS連携関連
 
@@ -783,6 +829,3 @@ parse @message /"session\.id":\s*"(?<sid>[^"]+)"/
 | stats count_distinct(sid) as sessions
 ```
 
-### Marpテーマ確認
-
-Marp関連のデバッグは `/kb-marp` スキルを参照してください。

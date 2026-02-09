@@ -122,6 +122,89 @@ Amplify Console → **Environment variables** で設定:
 - APIキー等の機密情報はここで設定
 - CDKのビルド時に参照可能
 
+### SSR環境変数が読めない問題（Next.js + Amplify Console）
+
+**症状**: Amplify Consoleの「Environment variables」で設定した変数が、Next.js API Route（SSR）のランタイムで `undefined` になる
+
+**原因**: Amplify Consoleの環境変数はビルド時のシェルに注入されるが、SSRランタイム（Lambda@Edge等）には自動で渡されない場合がある
+
+**解決策**: `amplify.yml` の preBuild フェーズで `.env.production` を生成する
+
+```yaml
+# amplify.yml
+version: 1
+applications:
+  - appRoot: apps/web
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            # --- .env.production 生成 ---
+            # Next.js API Route (SSR) のランタイムで必要な環境変数をここに追加
+            # Amplify Console の Environment variables だけでは SSR ランタイムに渡らない場合がある
+            - rm -f .env.production
+            - touch .env.production
+            - '[ -n "${MY_API_KEY:-}" ] && printf "MY_API_KEY=%s\n" "$MY_API_KEY" >> .env.production || true'
+            - '[ -n "${MY_SECRET:-}" ] && printf "MY_SECRET=%s\n" "$MY_SECRET" >> .env.production || true'
+            - npm ci
+        build:
+          commands:
+            - npm run build
+```
+
+**ポイント**:
+- `${VAR:-}` 構文で未設定時のエラーを防止
+- `|| true` で env 未設定の場合もビルドを継続（モックフォールバック対応）
+- 新しい環境変数を追加するたびに `amplify.yml` にも追記が必要
+
+### モノレポ構成（npm workspaces）
+
+`amplify.yml` で `appRoot` を指定してモノレポ内のフロントエンドアプリを指定:
+
+```yaml
+version: 1
+applications:
+  - appRoot: apps/web    # モノレポ内のフロントエンドディレクトリ
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            # amplify_outputs.json がない場合は空JSONを生成（sandbox未起動時のビルドエラー防止）
+            - '[ -f amplify_outputs.json ] || echo "{}" > amplify_outputs.json'
+            - npm ci    # ルートの workspaces 設定で依存解決
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: .next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+          - .next/cache/**/*
+```
+
+**構成例**:
+```
+project-root/
+├── apps/web/                 # Next.js フロントエンド
+│   ├── src/
+│   ├── package.json
+│   └── amplify_outputs.json  # 自動生成（.gitignore対象）
+├── amplify/                  # Amplify Gen 2 バックエンド
+│   ├── backend.ts
+│   ├── auth/resource.ts
+│   └── data/resource.ts
+├── amplify.yml               # Amplify ビルド設定
+└── package.json              # npm workspaces ルート
+```
+
+**ポイント**:
+- `npm ci` はルートで実行 → workspaces設定で子パッケージの依存も解決
+- `amplify_outputs.json` は `.gitignore` 対象。存在しない場合に空JSON `{}` を生成してビルドエラーを防止
+- Amplify Consoleは `amplify/` ディレクトリを自動検出してGen 2バックエンドを有効化
+
 ## CDK Hotswap
 
 - CDK v1.14.0〜 で Bedrock AgentCore Runtime に対応
@@ -311,28 +394,7 @@ containerImageBuild.repository.addLifecycleRule({...});
 
 ## 開発時のトラブルシューティング
 
-### Tailwind: レスポンシブクラス変更がPC表示に反映されない
-
-**症状**: `text-[8px]` に変更しても、PC画面で文字サイズが変わらない
-
-**原因**: `md:text-xs` などのレスポンシブクラスがPC表示で優先されるため、ベースクラスの変更だけでは反映されない
-
-**解決策**: ベースクラスとレスポンシブクラスの両方を変更する
-```tsx
-// NG: ベースのみ変更 → PCではmd:text-xsが適用される
-className="text-[8px] md:text-xs"
-
-// OK: 両方変更
-className="text-[8px] md:text-[10px]"
-```
-
-### dotenv: .env.local が読み込まれない
-
-**症状**: `.env.local`に環境変数を設定したが、Node.js（Amplify CDK等）で読み込まれない
-
-**原因**: `dotenv`パッケージはデフォルトで`.env`のみ読む。`.env.local`はVite/Next.jsの独自サポート
-
-**解決策**: `.env.local` → `.env` にリネーム（Viteは`.env`も読むため互換性あり）
+Amplify/CDK開発で遭遇する問題（Tailwindレスポンシブ、dotenv、Docker未起動等）は `/kb-troubleshooting` を参照。
 
 ---
 
