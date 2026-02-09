@@ -1,6 +1,6 @@
 ---
 name: kb-project-authoring
-description: Create or update reusable kb-* style skills from project learnings. Use when a project accumulates troubleshooting notes, implementation patterns, architecture decisions, or framework-specific gotchas and those learnings should be converted into a structured SKILL.md under ~/.claude/skills for reuse across future projects.
+description: プロジェクトで得た学びを再利用可能な kb-* スタイルのスキルとして作成・更新する。トラブルシュート記録、実装パターン、アーキテクチャ判断、フレームワーク固有の注意点を整理し、将来の再利用に向けて /root/.codex/skills 配下の構造化された SKILL.md に落とし込む。
 ---
 
 # Project KB Authoring

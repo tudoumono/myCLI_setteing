@@ -54,8 +54,8 @@ user-invocable: true
    - 各候補に「症状/原因/手順/検証」を1行ずつメモ
 
 2. **重複チェック**
-   - `kb-candidate` は `{{SKILLS_DIR}}/kb-*/SKILL.md` を確認し、同等内容が既にないか確認
-   - `skill-candidate` は `{{SKILLS_DIR}}/*/SKILL.md` を確認し、同等フローの既存スキルがないか確認
+   - `kb-candidate` は `/root/.codex/skills/kb-*/SKILL.md` を確認し、同等内容が既にないか確認
+   - `skill-candidate` は `/root/.codex/skills/*/SKILL.md` を確認し、同等フローの既存スキルがないか確認
    - 同等内容がある候補は破棄
 
 3. **候補の絞り込みとレート制限**
@@ -70,9 +70,9 @@ user-invocable: true
 
 5. **承認後の処理**
    - `kb-candidate` が承認された場合:
-     - `{{SKILLS_DIR}}/sync-knowledge/SKILL.md` の手順に従う
+     - `/root/.codex/skills/sync-knowledge/SKILL.md` の手順に従う
    - `skill-candidate` が承認された場合:
-     - `{{SKILLS_DIR}}/kb-project-authoring/SKILL.md` の手順に従う
+     - `/root/.codex/skills/kb-project-authoring/SKILL.md` の手順に従う
      - まず草案（構成・追記候補・差分方針）を提示し、最終反映前に再承認を取る
 
 6. **却下時の処理**

@@ -1,12 +1,12 @@
 ---
 name: sync-knowledge
-description: プロジェクトで得た学びをグローバルナレッジベース（{{SKILLS_DIR}}/kb-*/）に反映する。新しい技術的知見やトラブルシューティング情報を蓄積
+description: プロジェクトで得た学びをグローバルナレッジベース（/root/.codex/skills/kb-*/）に反映する。新しい技術的知見やトラブルシューティング情報を蓄積
 user-invocable: true
 ---
 
 # ナレッジベース更新
 
-現在のプロジェクトで得た学びを `{{SKILLS_DIR}}/` 配下のナレッジスキルに反映してください。
+現在のプロジェクトで得た学びを `/root/.codex/skills/` 配下のナレッジスキルに反映してください。
 
 ## 対象スキル
 
@@ -31,7 +31,7 @@ user-invocable: true
    - トラブルシューティング → `kb-troubleshooting`
 
 3. **ナレッジスキルを更新**
-   - `{{SKILLS_DIR}}/kb-*/SKILL.md` を読み込み
+   - `/root/.codex/skills/kb-*/SKILL.md` を読み込み
    - プロジェクト固有でない汎用的な学びを追記
    - コード例や具体的な解決策を含める
 

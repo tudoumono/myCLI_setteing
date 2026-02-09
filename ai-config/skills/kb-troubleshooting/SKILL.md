@@ -243,6 +243,40 @@ aws amplify update-app \
 2. Build image → Custom Build Image を選択
 3. イメージ名: `public.ecr.aws/codebuild/amazonlinux-x86_64-standard:5.0`
 
+### Amplify Hosting + Next.js: API Route が常に mock フォールバックする
+
+**症状**: 本番で `GET /api/problems?refresh=true` が常に `"source":"mock"` を返す（ローカルではSheets接続できる）
+
+**原因**:
+- Hosting の環境変数が Next.js API Route（SSRランタイム）で期待通り読めていない
+- `process.env` 判定をモジュールトップレベルで固定していると、期待しない値でキャッシュされる場合がある
+
+**解決策**:
+1. `process.env` 判定をリクエストハンドラ内で評価する
+2. Amplify build で `.env.production` を生成し、SSRで必要な環境変数を明示的に書き込む
+
+```yaml
+# amplify.yml (preBuild)
+- rm -f .env.production
+- touch .env.production
+- '[ -n "${GOOGLE_SHEETS_ID:-}" ] && printf "GOOGLE_SHEETS_ID=%s\n" "$GOOGLE_SHEETS_ID" >> .env.production || true'
+- '[ -n "${GOOGLE_SERVICE_ACCOUNT_KEY:-}" ] && printf "GOOGLE_SERVICE_ACCOUNT_KEY=%s\n" "$GOOGLE_SERVICE_ACCOUNT_KEY" >> .env.production || true'
+```
+
+```typescript
+// Next.js route handler
+export async function GET() {
+  const isMockMode = !process.env["GOOGLE_SHEETS_ID"];
+  // ...
+}
+```
+
+**Verification**:
+```bash
+curl -sS "https://<your-domain>/api/problems?refresh=true"
+# 期待: {"source":"sheets", ...}
+```
+
 ### LINE Push Message: 429 月間メッセージ上限
 
 **症状**: Push Message送信時に429エラー `{"message":"You have reached your monthly limit."}`

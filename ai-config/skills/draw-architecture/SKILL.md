@@ -59,7 +59,7 @@ agentcore = Custom("AgentCore Runtime", agentcore_icon)
 このスキルにはよく使うアイコンが同梱されています：
 
 ```
-~/.claude/skills/draw-architecture/icons/
+/root/.codex/skills/draw-architecture/icons/
 ├── strands-agents.png              # Strands Agents
 ├── Arch_Amazon-Bedrock_64.png      # Bedrock
 ├── Arch_Amazon-Bedrock-AgentCore_64.png  # AgentCore（最新）
@@ -81,7 +81,7 @@ agentcore = Custom("AgentCore Runtime", agentcore_icon)
 
 ```python
 import os
-ICON_DIR = os.path.expanduser("~/.claude/skills/draw-architecture/icons")
+ICON_DIR = os.path.expanduser("/root/.codex/skills/draw-architecture/icons")
 
 agentcore_icon = f"{ICON_DIR}/Arch_Amazon-Bedrock-AgentCore_64.png"
 strands_icon = f"{ICON_DIR}/strands-agents.png"
