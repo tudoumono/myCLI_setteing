@@ -13,7 +13,9 @@
   },
   "global": {
     "claudeServers": [
-      "context7"
+      "context7",
+      "chrome-devtools",
+      "playwright"
     ]
   },
   "servers": {
@@ -35,6 +37,44 @@
         "gemini": "settings"
       },
       "npm_package": "@upstash/context7-mcp"
+    },
+    "chrome-devtools": {
+      "enabled": true,
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ],
+      "targets": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "delivery": {
+        "claude": "plugin",
+        "codex": "config",
+        "gemini": "settings"
+      },
+      "npm_package": "chrome-devtools-mcp"
+    },
+    "playwright": {
+      "enabled": true,
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ],
+      "targets": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "delivery": {
+        "claude": "plugin",
+        "codex": "config",
+        "gemini": "settings"
+      },
+      "npm_package": "@playwright/mcp"
     }
   },
   "projects": {},
