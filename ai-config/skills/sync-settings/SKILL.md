@@ -44,10 +44,21 @@ Claude Codeの**共通設定のみ**をGitHubリポジトリと双方向同期�
 - `~/.claude/rules/` - **廃止済み（skillsに移行）**
 - その他キャッシュ、履歴、デバッグログ等
 
-## リポジトリパス
+## 同期先リポジトリ（固定）
 
-```
-~/git/minorun365/my-claude-code-settings/
+同期先は以下のGitHubリポジトリに固定する：
+
+`https://github.com/tudoumono/myCLI_setteing`
+
+実行時は、ローカルclone先を `REPO_DIR` として扱う：
+
+```bash
+REPO_URL="https://github.com/tudoumono/myCLI_setteing"
+REPO_DIR="${HOME}/git/myCLI_setteing"
+
+if [ ! -d "${REPO_DIR}/.git" ]; then
+  git clone "${REPO_URL}" "${REPO_DIR}"
+fi
 ```
 
 ## 実行手順
@@ -56,25 +67,25 @@ Claude Codeの**共通設定のみ**をGitHubリポジトリと双方向同期�
 
 1. **差分確認**
    ```bash
-   diff -rq ~/.claude/skills/ ~/git/minorun365/my-claude-code-settings/claude/skills/
-   diff -rq ~/.claude/agents/ ~/git/minorun365/my-claude-code-settings/claude/agents/
-   diff ~/.claude/CLAUDE.md ~/git/minorun365/my-claude-code-settings/claude/CLAUDE.md
-   diff <(jq '{spinnerVerbs, language}' ~/.claude/settings.json) <(jq '{spinnerVerbs, language}' ~/git/minorun365/my-claude-code-settings/claude/settings.json 2>/dev/null || echo '{}')
+   diff -rq ~/.claude/skills/ "${REPO_DIR}/claude/skills/"
+   diff -rq ~/.claude/agents/ "${REPO_DIR}/claude/agents/"
+   diff ~/.claude/CLAUDE.md "${REPO_DIR}/claude/CLAUDE.md"
+   diff <(jq '{spinnerVerbs, language}' ~/.claude/settings.json) <(jq '{spinnerVerbs, language}' "${REPO_DIR}/claude/settings.json" 2>/dev/null || echo '{}')
    ```
 
 2. **同期実行**
    ```bash
-   rsync -av --delete ~/.claude/skills/ ~/git/minorun365/my-claude-code-settings/claude/skills/
-   rsync -av --delete ~/.claude/agents/ ~/git/minorun365/my-claude-code-settings/claude/agents/
-   cp ~/.claude/CLAUDE.md ~/git/minorun365/my-claude-code-settings/claude/
+   rsync -av --delete ~/.claude/skills/ "${REPO_DIR}/claude/skills/"
+   rsync -av --delete ~/.claude/agents/ "${REPO_DIR}/claude/agents/"
+   cp ~/.claude/CLAUDE.md "${REPO_DIR}/claude/"
    ```
 
 3. **settings.json同期**（spinnerVerbs, languageのみ）
    ```bash
    jq -s '.[0] * {spinnerVerbs: .[1].spinnerVerbs, language: .[1].language}' \
-     ~/git/minorun365/my-claude-code-settings/claude/settings.json \
+     "${REPO_DIR}/claude/settings.json" \
      ~/.claude/settings.json > /tmp/settings.json && \
-   mv /tmp/settings.json ~/git/minorun365/my-claude-code-settings/claude/settings.json
+   mv /tmp/settings.json "${REPO_DIR}/claude/settings.json"
    ```
 
 4. **mcpServers同期**（機密情報をマスクしてエクスポート）
@@ -89,12 +100,12 @@ Claude Codeの**共通設定のみ**をGitHubリポジトリと双方向同期�
        )
      else .
      end
-   )}' ~/.claude.json > ~/git/minorun365/my-claude-code-settings/.claude.json
+   )}' ~/.claude.json > "${REPO_DIR}/.claude.json"
    ```
 
 5. **コミット・プッシュ**（ユーザー確認後）
    ```bash
-   cd ~/git/minorun365/my-claude-code-settings
+   cd "${REPO_DIR}"
    git add -A
    git status
    git commit -m "設定同期"
@@ -105,29 +116,29 @@ Claude Codeの**共通設定のみ**をGitHubリポジトリと双方向同期�
 
 1. **リポジトリを最新化**
    ```bash
-   cd ~/git/minorun365/my-claude-code-settings
+   cd "${REPO_DIR}"
    git pull
    ```
 
 2. **差分確認**
    ```bash
-   diff -rq ~/git/minorun365/my-claude-code-settings/claude/skills/ ~/.claude/skills/
-   diff -rq ~/git/minorun365/my-claude-code-settings/claude/agents/ ~/.claude/agents/
-   diff ~/git/minorun365/my-claude-code-settings/claude/CLAUDE.md ~/.claude/CLAUDE.md
+   diff -rq "${REPO_DIR}/claude/skills/" ~/.claude/skills/
+   diff -rq "${REPO_DIR}/claude/agents/" ~/.claude/agents/
+   diff "${REPO_DIR}/claude/CLAUDE.md" ~/.claude/CLAUDE.md
    ```
 
 3. **同期実行**（ユーザー確認後）
    ```bash
-   rsync -av --delete ~/git/minorun365/my-claude-code-settings/claude/skills/ ~/.claude/skills/
-   rsync -av --delete ~/git/minorun365/my-claude-code-settings/claude/agents/ ~/.claude/agents/
-   cp ~/git/minorun365/my-claude-code-settings/claude/CLAUDE.md ~/.claude/
+   rsync -av --delete "${REPO_DIR}/claude/skills/" ~/.claude/skills/
+   rsync -av --delete "${REPO_DIR}/claude/agents/" ~/.claude/agents/
+   cp "${REPO_DIR}/claude/CLAUDE.md" ~/.claude/
    ```
 
 4. **settings.json適用**（spinnerVerbs, languageのみ）
    ```bash
    jq -s '.[0] * {spinnerVerbs: .[1].spinnerVerbs, language: .[1].language}' \
      ~/.claude/settings.json \
-     ~/git/minorun365/my-claude-code-settings/claude/settings.json > /tmp/settings.json && \
+     "${REPO_DIR}/claude/settings.json" > /tmp/settings.json && \
    mv /tmp/settings.json ~/.claude/settings.json
    ```
 

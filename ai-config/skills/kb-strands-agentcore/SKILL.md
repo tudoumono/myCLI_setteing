@@ -885,7 +885,7 @@ uv add 'botocore[crt]'
 
 ### Kimi K2関連
 
-Kimi K2（Moonshot AI）特有の問題は `/kb-kimi` スキルを参照してください。
+Kimi K2（Moonshot AI）特有の問題は、本リポジトリの正本には専用KBがないため、必要に応じて `kb-troubleshooting` に記録してください。
 
 ---
 

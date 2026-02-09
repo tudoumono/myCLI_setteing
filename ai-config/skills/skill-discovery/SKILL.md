@@ -20,6 +20,16 @@ user-invocable: true
 - 作業完了時（最終報告の直前）
 - ユーザーが「スキル化できる学びがあるか」を確認したいとき
 
+## 連携フロー（マスター）
+
+```text
+実装完了
+  → skill-discovery（候補検知）
+    → kb-candidate 承認 → sync-knowledge（KB追記）
+    → skill-candidate 承認 → sync-knowledge（スキル草案作成）
+  → sync-settings（GitHub同期）
+```
+
 ## ガードレール
 
 1. 作業途中で割り込まない。候補提案は最後に行う。
@@ -87,6 +97,4 @@ user-invocable: true
 
 ## 次のステップ
 
-必要なら、以下を提案してください:
-
-> 「今回の作業から `kb-candidate` と `skill-candidate` をそれぞれ最大1件提案できます。確認しますか？」
+候補が承認されたら、`sync-knowledge` を実行してKB追記またはスキル草案作成へ進んでください。

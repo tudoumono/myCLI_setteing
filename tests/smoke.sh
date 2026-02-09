@@ -56,7 +56,10 @@ bash -lc "cd \"${TMP_ROOT}/setupScript\" && \"${SCRIPT}\" reset-user" >/dev/null
 
 test -f "${HOME}/.codex/config.toml"
 test -f "${HOME}/.claude/settings.json"
+test -f "${HOME}/.claude/agents/app-test-debug-agent.md"
+test -f "${HOME}/.codex/agents/app-test-debug-agent.md"
 test -f "${HOME}/.gemini/settings.json"
+test -f "${HOME}/.gemini/agents/app-test-debug-agent.md"
 
 node - "${HOME}/.gemini/settings.json" <<'NODE'
 const fs = require("fs");

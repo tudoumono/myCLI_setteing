@@ -93,7 +93,7 @@ cd <myCLI_setteing_root>
 ./update-ai-clis.sh check
 ```
 
-## 9. 3CLI配布先へ反映（skills含む）
+## 9. 3CLI配布先へ反映（skills / agents 含む）
 
 - 正本変更後は `promote` か `reset-user` で反映する。
 - PJ文脈での `sync` / `sync-here` は配布反映しないため、配布目的なら使わない。

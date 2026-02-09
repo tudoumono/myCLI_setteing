@@ -15,6 +15,7 @@ PROJECT_LOCAL_FILE_NAME=".ai-stack.local.json"
 PROJECT_LOCAL_INSTRUCTIONS_FILE_NAME=".ai-stack.instructions.md"
 CODEX_BASE_FILE="${CONFIG_DIR}/codex-base.toml"
 SKILLS_MASTER_DIR="${CONFIG_DIR}/skills"
+AGENTS_MASTER_DIR="${CONFIG_DIR}/agents"
 GLOBAL_INSTRUCTIONS="${CONFIG_DIR}/global-instructions.md"
 GLOBAL_INSTRUCTIONS_LOCAL="${CONFIG_DIR}/global-instructions.local.md"
 
@@ -24,8 +25,11 @@ CODEX_TOML="${HOME}/.codex/config.toml"
 GEMINI_SETTINGS="${HOME}/.gemini/settings.json"
 GEMINI_MCP_MANAGED="${HOME}/.gemini/mcp.managed.json"
 CLAUDE_SKILLS_DIR="${HOME}/.claude/skills"
+CLAUDE_AGENTS_DIR="${HOME}/.claude/agents"
 GEMINI_SKILLS_DIR="${HOME}/.gemini/skills"
 CODEX_SKILLS_DIR="${HOME}/.codex/skills"
+GEMINI_AGENTS_DIR="${HOME}/.gemini/agents"
+CODEX_AGENTS_DIR="${HOME}/.codex/agents"
 
 RUN_TS="$(date +%Y%m%d-%H%M%S)"
 BACKUP_DIR="${CONFIG_DIR}/backups/${RUN_TS}"
@@ -100,7 +104,7 @@ usage() {
   all     update の後に sync を実行します。
   all-here  project = 現在ディレクトリとして all を実行します。
   diff    sync 実行時にどう変わるかを実ファイル変更なしで表示します。
-  check   skills と global instructions のドリフトを検査し、不一致時は非0で終了します（CI向け）。
+  check   skills / agents / global instructions のドリフトを検査し、不一致時は非0で終了します（CI向け）。
   status  バージョン情報と有効設定状態を表示します。
   status-here  project = 現在ディレクトリとして status を表示します。
   skill-share  指定したローカルスキルを 3CLI 間で共有します（managed skill は対象外）。
@@ -219,6 +223,38 @@ EOF_SKILLS_README
   fi
 }
 
+ensure_agents_master() {
+  local allow_create="${1:-no}" # yes|no
+
+  if [[ ! -d "${AGENTS_MASTER_DIR}" ]]; then
+    if [[ "${allow_create}" == "yes" ]]; then
+      mkdir -p "${AGENTS_MASTER_DIR}"
+    else
+      error "Agents master directory missing: ${AGENTS_MASTER_DIR}"
+      error "Run './update-ai-clis.sh init' from setupScript directory first."
+      exit 1
+    fi
+  fi
+
+  if [[ ! -f "${AGENTS_MASTER_DIR}/README.md" ]]; then
+    if [[ "${allow_create}" == "yes" ]]; then
+      cat > "${AGENTS_MASTER_DIR}/README.md" <<'EOF_AGENTS_README'
+# agents master
+
+`ai-config/agents` is the single source of truth for custom agents.
+
+Synced targets:
+
+- `~/.claude/agents`
+- `~/.gemini/agents`
+- `~/.codex/agents`
+EOF_AGENTS_README
+    else
+      warn "Agents master README missing: ${AGENTS_MASTER_DIR}/README.md"
+    fi
+  fi
+}
+
 list_master_skill_names() {
   [[ -d "${SKILLS_MASTER_DIR}" ]] || return 0
   local dir
@@ -333,6 +369,125 @@ sync_skills() {
   sync_skills_to_target "${GEMINI_SKILLS_DIR}"
   sync_skills_to_target "${CODEX_SKILLS_DIR}"
   info "Synced skills: master=${master_count}, targets=claude/gemini/codex"
+}
+
+list_master_agent_files() {
+  [[ -d "${AGENTS_MASTER_DIR}" ]] || return 0
+  find "${AGENTS_MASTER_DIR}" -mindepth 1 -type f \
+    ! -name 'README.md' \
+    ! -path '*/.*' \
+    -print 2>/dev/null | sort
+}
+
+count_agent_files_in_dir() {
+  local dir="$1"
+  if [[ ! -d "${dir}" ]]; then
+    echo "0"
+    return 0
+  fi
+  local count
+  count="$(find "${dir}" -mindepth 1 -type f \
+    ! -name 'README.md' \
+    ! -name '.ai-stack.managed-agents' \
+    ! -path '*/.*' 2>/dev/null | wc -l | tr -d ' ')"
+  echo "${count:-0}"
+}
+
+agent_tree_hash() {
+  local dir="$1"
+  if [[ ! -d "${dir}" ]]; then
+    echo "n/a"
+    return 0
+  fi
+  local tmp
+  tmp="$(mktemp)"
+  local f rel
+  while IFS= read -r -d '' f; do
+    rel="${f#${dir}/}"
+    printf "%s %s\n" "${rel}" "$(sha256_of_file "${f}")" >> "${tmp}"
+  done < <(find "${dir}" -mindepth 1 -type f \
+    ! -name 'README.md' \
+    ! -name '.ai-stack.managed-agents' \
+    ! -path '*/.*' \
+    -print0 2>/dev/null | sort -z)
+
+  if [[ ! -s "${tmp}" ]]; then
+    rm -f "${tmp}"
+    echo "empty"
+    return 0
+  fi
+
+  sort "${tmp}" | sha256_of_stdin
+  rm -f "${tmp}"
+}
+
+agents_dir_for_cli() {
+  local cli="$1"
+  case "${cli}" in
+    claude) printf "%s\n" "${CLAUDE_AGENTS_DIR}" ;;
+    gemini) printf "%s\n" "${GEMINI_AGENTS_DIR}" ;;
+    codex) printf "%s\n" "${CODEX_AGENTS_DIR}" ;;
+    *)
+      error "Unknown CLI target: ${cli}"
+      return 1
+      ;;
+  esac
+}
+
+sync_agents_to_target() {
+  local target_dir="$1"
+  local manifest="${target_dir}/.ai-stack.managed-agents"
+  local tmp_manifest
+  tmp_manifest="$(mktemp)"
+  mkdir -p "${target_dir}"
+
+  local src rel dst
+  while IFS= read -r src; do
+    [[ -n "${src}" ]] || continue
+    rel="${src#${AGENTS_MASTER_DIR}/}"
+    dst="${target_dir}/${rel}"
+    mkdir -p "$(dirname "${dst}")"
+    rm -f "${dst}"
+    cp -a "${src}" "${dst}"
+    printf "%s\n" "${rel}" >> "${tmp_manifest}"
+  done < <(list_master_agent_files)
+
+  if [[ -f "${manifest}" ]]; then
+    local stale
+    while IFS= read -r stale; do
+      [[ -n "${stale}" ]] || continue
+      if ! grep -qFx "${stale}" "${tmp_manifest}" 2>/dev/null; then
+        rm -f "${target_dir}/${stale}"
+      fi
+    done < "${manifest}"
+  fi
+
+  find "${target_dir}" -depth -type d -empty ! -path "${target_dir}" -delete 2>/dev/null || true
+  mv "${tmp_manifest}" "${manifest}"
+  chmod 644 "${manifest}" 2>/dev/null || true
+}
+
+sync_agents() {
+  ensure_agents_master
+
+  local master_count
+  master_count="$(count_agent_files_in_dir "${AGENTS_MASTER_DIR}")"
+  if [[ "${master_count}" -eq 0 ]]; then
+    warn "No master agents found in ${AGENTS_MASTER_DIR}; skip agents sync."
+    return 0
+  fi
+
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    info "Dry-run: skip agent distribution (master agents: ${master_count})."
+    return 0
+  fi
+
+  local cli target_dir
+  for cli in claude gemini codex; do
+    target_dir="$(agents_dir_for_cli "${cli}")" || return 1
+    sync_agents_to_target "${target_dir}"
+  done
+  info "Synced agents: master=${master_count}, targets=claude/gemini/codex"
 }
 
 skills_dir_for_cli() {
@@ -966,6 +1121,10 @@ Main baseline (`base.json`) is intentionally locked.
 - `base.lock.sha256`: Lock hash for `base.json`
 - `projects/<name>.json`: Legacy project overlay (optional, backward compatibility)
 - `local.json`: Machine-local overlay (optional, do not commit)
+- `skills/<name>/SKILL.md`: Managed skills master
+- `agents/*.md`: Claude custom agents master
+- `global-instructions.md`: Shared global instructions (optional)
+- `global-instructions.local.md`: Machine-local instructions (optional, do not commit)
 - `<project>/.ai-stack.local.json`: Project-local overlay (optional, can commit)
 - `<project>/.ai-stack.instructions.md`: Project-local instructions (optional, can commit)
 
@@ -990,6 +1149,7 @@ EOF_README
   fi
 
   ensure_skills_master "${allow_create}"
+  ensure_agents_master "${allow_create}"
 
   if [[ "${allow_create}" == "yes" ]]; then
     ensure_base_lock
@@ -1833,6 +1993,7 @@ sync_all() {
   sync_gemini_settings_baseline
   sync_gemini_manifest
   sync_skills
+  sync_agents
   sync_global_instructions
 
   info "Backup snapshot: ${BACKUP_DIR}"
@@ -1995,6 +2156,7 @@ reset_all() {
   sync_claude_settings_defaults
   reset_gemini_settings
   sync_skills
+  sync_agents
   sync_global_instructions
   uninstall_npm_mcp_packages
   uninstall_pipx_mcp_packages
@@ -2007,13 +2169,16 @@ wipe_user_settings() {
     "${HOME}/.claude/settings.json"
     "${HOME}/.claude/CLAUDE.md"
     "${HOME}/.claude/skills"
+    "${HOME}/.claude/agents"
     "${HOME}/.codex/config.toml"
     "${HOME}/.codex/AGENTS.md"
     "${HOME}/.codex/skills"
+    "${HOME}/.codex/agents"
     "${HOME}/.gemini/settings.json"
     "${HOME}/.gemini/mcp.managed.json"
     "${HOME}/.gemini/GEMINI.md"
     "${HOME}/.gemini/skills"
+    "${HOME}/.gemini/agents"
   )
 
   if [[ "${DRY_RUN}" -eq 1 ]]; then
@@ -2155,6 +2320,27 @@ NODE
   printf "  %-24s %s\n" "Gemini skills:" "${gemini_skill_count}"
   printf "  %-24s %s\n" "Codex skills:" "${codex_skill_count}"
 
+  local master_agent_count
+  local claude_agent_count
+  local gemini_agent_count
+  local codex_agent_count
+  local master_agent_hash
+  local claude_agent_hash
+  local gemini_agent_hash
+  local codex_agent_hash
+  master_agent_count="$(count_agent_files_in_dir "${AGENTS_MASTER_DIR}")"
+  claude_agent_count="$(count_agent_files_in_dir "${CLAUDE_AGENTS_DIR}")"
+  gemini_agent_count="$(count_agent_files_in_dir "${GEMINI_AGENTS_DIR}")"
+  codex_agent_count="$(count_agent_files_in_dir "${CODEX_AGENTS_DIR}")"
+  master_agent_hash="$(agent_tree_hash "${AGENTS_MASTER_DIR}" | cut -c1-12)"
+  claude_agent_hash="$(agent_tree_hash "${CLAUDE_AGENTS_DIR}" | cut -c1-12)"
+  gemini_agent_hash="$(agent_tree_hash "${GEMINI_AGENTS_DIR}" | cut -c1-12)"
+  codex_agent_hash="$(agent_tree_hash "${CODEX_AGENTS_DIR}" | cut -c1-12)"
+  printf "  %-24s %s (hash:%s)\n" "Agents master:" "${master_agent_count}" "${master_agent_hash}"
+  printf "  %-24s %s (hash:%s)\n" "Claude agents:" "${claude_agent_count}" "${claude_agent_hash}"
+  printf "  %-24s %s (hash:%s)\n" "Gemini agents:" "${gemini_agent_count}" "${gemini_agent_hash}"
+  printf "  %-24s %s (hash:%s)\n" "Codex agents:" "${codex_agent_count}" "${codex_agent_hash}"
+
   if [[ -f "${GLOBAL_INSTRUCTIONS}" ]]; then
     local instr_hash
     instr_hash="$(sha256_short "${GLOBAL_INSTRUCTIONS}")"
@@ -2256,6 +2442,53 @@ check_drift() {
     rm -rf "${tmp_rendered}"
   }
 
+  check_agents_match() {
+    local label="$1" master_dir="$2" target_dir="$3"
+    local master_count
+    master_count="$(count_agent_files_in_dir "${master_dir}")"
+    if [[ "${master_count}" -eq 0 ]]; then
+      return 0
+    fi
+    if [[ ! -d "${target_dir}" ]]; then
+      warn "Drift: ${label} agents directory missing"
+      drift=1
+      return 0
+    fi
+
+    local tmp_rendered
+    tmp_rendered="$(mktemp -d)"
+    local src rel exp_agent act_agent
+    while IFS= read -r src; do
+      [[ -n "${src}" ]] || continue
+      rel="${src#${master_dir}/}"
+      exp_agent="${tmp_rendered}/${rel}"
+      mkdir -p "$(dirname "${exp_agent}")"
+      cp -a "${src}" "${exp_agent}"
+    done < <(find "${master_dir}" -mindepth 1 -type f \
+      ! -name 'README.md' \
+      ! -path '*/.*' \
+      -print 2>/dev/null | sort)
+
+    while IFS= read -r src; do
+      [[ -n "${src}" ]] || continue
+      rel="${src#${master_dir}/}"
+      exp_agent="${tmp_rendered}/${rel}"
+      act_agent="${target_dir}/${rel}"
+      if [[ ! -f "${act_agent}" ]]; then
+        warn "Drift: ${label} agent '${rel}' missing"
+        drift=1
+      elif ! cmp -s "${exp_agent}" "${act_agent}"; then
+        warn "Drift: ${label} agent '${rel}' content mismatch"
+        drift=1
+      fi
+    done < <(find "${master_dir}" -mindepth 1 -type f \
+      ! -name 'README.md' \
+      ! -path '*/.*' \
+      -print 2>/dev/null | sort)
+
+    rm -rf "${tmp_rendered}"
+  }
+
   local merged_instructions
   merged_instructions="$(build_merged_instructions)"
 
@@ -2269,6 +2502,9 @@ check_drift() {
   check_skills_match "Claude" "${CLAUDE_SKILLS_DIR}"
   check_skills_match "Gemini" "${GEMINI_SKILLS_DIR}"
   check_skills_match "Codex" "${CODEX_SKILLS_DIR}"
+  check_agents_match "Claude" "${AGENTS_MASTER_DIR}" "${CLAUDE_AGENTS_DIR}"
+  check_agents_match "Gemini" "${AGENTS_MASTER_DIR}" "${GEMINI_AGENTS_DIR}"
+  check_agents_match "Codex" "${AGENTS_MASTER_DIR}" "${CODEX_AGENTS_DIR}"
 
   if [[ "${drift}" -eq 0 ]]; then
     info "Check passed: no drift detected."
@@ -2377,6 +2613,26 @@ print_sync_drift_status() {
   if file_pair_different "${GEMINI_SETTINGS}" "${preview_root}/.gemini/settings.json" || \
      file_pair_different "${GEMINI_MCP_MANAGED}" "${preview_root}/.gemini/mcp.managed.json"; then
     gemini_state="diff"
+  fi
+
+  local master_agent_hash
+  local claude_agent_hash
+  local gemini_agent_hash
+  local codex_agent_hash
+  master_agent_hash="$(agent_tree_hash "${AGENTS_MASTER_DIR}")"
+  claude_agent_hash="$(agent_tree_hash "${CLAUDE_AGENTS_DIR}")"
+  gemini_agent_hash="$(agent_tree_hash "${GEMINI_AGENTS_DIR}")"
+  codex_agent_hash="$(agent_tree_hash "${CODEX_AGENTS_DIR}")"
+  if [[ "${master_agent_hash}" != "empty" && "${master_agent_hash}" != "n/a" ]]; then
+    if [[ "${master_agent_hash}" != "${claude_agent_hash}" ]]; then
+      claude_state="diff"
+    fi
+    if [[ "${master_agent_hash}" != "${gemini_agent_hash}" ]]; then
+      gemini_state="diff"
+    fi
+    if [[ "${master_agent_hash}" != "${codex_agent_hash}" ]]; then
+      codex_state="diff"
+    fi
   fi
 
   printf "  %-24s %s\n" "Drift Claude:" "${claude_state}"

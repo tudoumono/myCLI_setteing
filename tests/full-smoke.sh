@@ -136,6 +136,9 @@ echo "-- skills --"
 assert_file_exists "claude skills synced" "${HOME}/.claude/skills/kb-troubleshooting/SKILL.md"
 assert_file_exists "gemini skills synced" "${HOME}/.gemini/skills/kb-troubleshooting/SKILL.md"
 assert_file_exists "codex skills synced" "${HOME}/.codex/skills/kb-troubleshooting/SKILL.md"
+assert_file_exists "claude agents synced" "${HOME}/.claude/agents/app-test-debug-agent.md"
+assert_file_exists "gemini agents synced" "${HOME}/.gemini/agents/app-test-debug-agent.md"
+assert_file_exists "codex agents synced" "${HOME}/.codex/agents/app-test-debug-agent.md"
 assert_file_not_exists "legacy agents skills are not used" "${HOME}/.agents/skills/kb-troubleshooting/SKILL.md"
 assert_file_contains "claude skill has claude path" "${HOME}/.claude/skills/sync-knowledge/SKILL.md" "${HOME}/.claude/skills"
 assert_file_contains "gemini skill has gemini path" "${HOME}/.gemini/skills/sync-knowledge/SKILL.md" "${HOME}/.gemini/skills"
@@ -189,6 +192,18 @@ echo "# tampered" >> "${HOME}/.claude/skills/sync-docs/SKILL.md"
 assert_exit_nonzero "check detects skill drift" "${SCRIPT}" check
 "${SCRIPT}" sync >/dev/null 2>&1
 assert_exit_0 "check passes after re-sync" "${SCRIPT}" check
+echo "# tampered" >> "${HOME}/.claude/agents/app-test-debug-agent.md"
+assert_exit_nonzero "check detects claude agent drift" "${SCRIPT}" check
+"${SCRIPT}" sync >/dev/null 2>&1
+assert_exit_0 "check passes after claude agent re-sync" "${SCRIPT}" check
+echo "# tampered" >> "${HOME}/.gemini/agents/app-test-debug-agent.md"
+assert_exit_nonzero "check detects gemini agent drift" "${SCRIPT}" check
+"${SCRIPT}" sync >/dev/null 2>&1
+assert_exit_0 "check passes after gemini agent re-sync" "${SCRIPT}" check
+echo "# tampered" >> "${HOME}/.codex/agents/app-test-debug-agent.md"
+assert_exit_nonzero "check detects codex agent drift" "${SCRIPT}" check
+"${SCRIPT}" sync >/dev/null 2>&1
+assert_exit_0 "check passes after codex agent re-sync" "${SCRIPT}" check
 
 # --- global instructions: absent ---
 echo "-- global instructions (absent) --"
@@ -245,7 +260,10 @@ assert_exit_0 "wipe-user dry-run runs" "${SCRIPT}" wipe-user --dry-run
 assert_exit_0 "wipe-user runs" "${SCRIPT}" wipe-user
 assert_file_not_exists "wipe-user removed codex config" "${HOME}/.codex/config.toml"
 assert_file_not_exists "wipe-user removed claude settings" "${HOME}/.claude/settings.json"
+assert_file_not_exists "wipe-user removed claude agents" "${HOME}/.claude/agents/app-test-debug-agent.md"
+assert_file_not_exists "wipe-user removed codex agents" "${HOME}/.codex/agents/app-test-debug-agent.md"
 assert_file_not_exists "wipe-user removed gemini settings" "${HOME}/.gemini/settings.json"
+assert_file_not_exists "wipe-user removed gemini agents" "${HOME}/.gemini/agents/app-test-debug-agent.md"
 
 assert_exit_0 "reset-user dry-run runs" bash -lc "cd \"${SCRIPT_DIR}\" && \"${SCRIPT}\" reset-user --dry-run"
 assert_exit_0 "reset-user restores from git config" bash -lc "cd \"${SCRIPT_DIR}\" && \"${SCRIPT}\" reset-user"

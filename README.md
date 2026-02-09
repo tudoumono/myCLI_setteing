@@ -61,6 +61,7 @@ cd /path/to/project
 - `<project>/.ai-stack.local.json`: PJローカルオーバーレイ（任意、コミット可）
 - `<project>/.ai-stack.instructions.md`: PJローカル指示（任意、コミット可）
 - `ai-config/skills/`: 管理対象 skill の正本
+- `ai-config/agents/`: Claude custom agents の正本
 - `ai-config/global-instructions.md`: 配布用グローバル指示（任意）
 
 ## 実行場所のルール
@@ -77,6 +78,14 @@ cd /path/to/project
   - `~/.gemini/skills/`
   - `~/.codex/skills/`
 - PJ で作成した skill をユーザ設定へ反映するには `skill-promote` を使う
+
+## Agents の扱い
+
+- 管理対象 agent は `ai-config/agents/` を正本として `sync` / `promote` / `reset` で配布
+- 配布先:
+  - `~/.claude/agents/`
+  - `~/.gemini/agents/`
+  - `~/.codex/agents/`
 
 ## ユーザ設定の復旧
 

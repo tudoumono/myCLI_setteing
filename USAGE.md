@@ -128,18 +128,27 @@ cd <myCLI_setteing_root>
 ./update-ai-clis.sh skill-share-all
 ```
 
+## Agents 運用
+
+- 管理対象 agent の正本: `ai-config/agents/`
+- 配布先:
+  - `~/.claude/agents/`
+  - `~/.gemini/agents/`
+  - `~/.codex/agents/`
+
 ## reset の挙動
 
 - 設定をベース状態へ戻す（認証トークンは保持）
 - `~/.gemini/mcp.managed.json` は再生成管理に戻る
 - レジストリにある npm/pipx MCP パッケージをアンインストール対象として処理
-- skills / global instructions を再配布
+- skills / agents / global instructions を再配布
 
 ## check の範囲
 
 `check` は以下のみを比較し、差分があれば非0で終了:
 
 - skills 配布結果
+- agents 配布結果（Claude/Codex/Gemini）
 - global instructions 配布結果
 
 MCP 設定ファイル全体の比較は対象外です。
@@ -150,6 +159,7 @@ MCP 設定ファイル全体の比較は対象外です。
 - MCP数（Claude/Codex/Gemini）
 - Codex `web_search` 状態
 - Skills数/ハッシュ
+- Agents数（master/Claude/Codex/Gemini）
 - Drift状態（Claude/Codex/Gemini）
 
 ## menu.sh

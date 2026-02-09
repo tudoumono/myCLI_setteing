@@ -9,6 +9,7 @@ Claude / Codex / Gemini の設定正本です。
 - `projects/<name>.json`: 旧来互換のPJオーバーレイ（optional）
 - `local.json`: マシンローカルオーバーレイ（optional, usually not committed）
 - `skills/<name>/SKILL.md`: 管理対象 skill の正本
+- `agents/*.md`: 管理対象 agents の正本
 - `global-instructions.md`: 共通指示（optional）
 - `global-instructions.local.md`: マシンローカル指示（optional, usually not committed）
 
@@ -26,9 +27,9 @@ Project-side files:
 
 Managed skills and instructions are copied to:
 
-- `~/.claude/skills/` and `~/.claude/CLAUDE.md`
-- `~/.gemini/skills/` and `~/.gemini/GEMINI.md`
-- `~/.codex/skills/` and `~/.codex/AGENTS.md`
+- `~/.claude/skills/`, `~/.claude/agents/` and `~/.claude/CLAUDE.md`
+- `~/.gemini/skills/`, `~/.gemini/agents/` and `~/.gemini/GEMINI.md`
+- `~/.codex/skills/`, `~/.codex/agents/` and `~/.codex/AGENTS.md`
 
 ## Operation policy
 
