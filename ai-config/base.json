@@ -15,6 +15,7 @@
     "claudeServers": [
       "context7",
       "chrome-devtools",
+      "drawio",
       "playwright"
     ]
   },
@@ -57,6 +58,25 @@
       },
       "npm_package": "chrome-devtools-mcp"
     },
+    "drawio": {
+      "enabled": true,
+      "command": "npx",
+      "args": [
+        "-y",
+        "@drawio/mcp"
+      ],
+      "targets": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "delivery": {
+        "claude": "plugin",
+        "codex": "config",
+        "gemini": "settings"
+      },
+      "npm_package": "@drawio/mcp"
+    },
     "playwright": {
       "enabled": true,
       "command": "npx",
@@ -80,7 +100,8 @@
   "projects": {},
   "uninstall": {
     "npm": [
-      "@upstash/context7-mcp"
+      "@upstash/context7-mcp",
+      "@drawio/mcp"
     ],
     "pipx": [
       "serena-agent"
