@@ -45,6 +45,7 @@
 | `/sync-settings` | Claude/Codex/Gemini 向け共通設定を GitHub 正本へ同期する（skills、agents、CLAUDE.md、mcpServers、settings一部の Push/Pull） |
 | `/backlog-manager` | 実装中に出た「今はやらないが後で検討する項目」を `BACKLOG.md` に構造化して管理する（保留追加、再開トリガー、完了移動、KB連携） |
 | `/build-linked-meeting-notes` | 会議トランスクリプトやメモから、`index.md` と `topics/*.md` の相互リンク付きMarkdown議事録セットを作成・更新する（要約、決定事項、アクション抽出、メモ紐づけ） |
+| `/research-note-authoring` | `/root/mywork/note` 配下で一般資料/PJ特化ノートを分類し、最新情報の調査・Markdown作成・README索引更新・リンク検証まで一貫して行う |
 
 プロジェクト固有でない汎用的な学びを得たら `/sync-knowledge` で追記する。
 推奨フローは `/skill-discovery` → 承認 → `/sync-knowledge` → 必要に応じて `/sync-settings`。

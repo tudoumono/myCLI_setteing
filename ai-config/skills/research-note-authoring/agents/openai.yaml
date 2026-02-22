@@ -1,0 +1,4 @@
+interface:
+  display_name: "調査ノート作成"
+  short_description: "一般資料とPJ特化ノートの調査・検討メモを構造化して作成・更新する"
+  default_prompt: "一般資料/PJ特化ノートのどちらに置くべきか判断し、既存ノートとの重複を確認したうえで、テンプレートに沿ってMarkdownを作成・更新し、README索引も更新してください。"
