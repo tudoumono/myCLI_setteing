@@ -1,6 +1,6 @@
 ---
 name: research-note-authoring
-description: 一般論の調査資料（`一般資料`）とプロジェクト固有の検討メモ（`PJ特化ノート`）を、AIとの議論結果を含めて構造化Markdownとして作成・更新するスキル。Use when Codex needs to classify notes into general/project, research up-to-date official docs, synthesize discussion points, create numbered note files, and maintain README indexes under `/root/mywork/note`.
+description: 一般論の調査資料（`一般資料`）とプロジェクト固有の検討メモ（`PJ特化ノート`）を、AIとの議論結果を含めて構造化Markdownとして作成・更新するスキル。必要に応じて Mermaid 図で構造・処理フロー・判断分岐を可視化する。Use when Codex needs to classify notes into general/project, research up-to-date official docs, synthesize discussion points, create numbered note files, add optional Mermaid diagrams, and maintain README indexes under `/root/mywork/note`.
 ---
 
 # Research Note Authoring
@@ -82,6 +82,19 @@ PJ特化の出典表記は `references/source-policy.md` を読む。
 - 出典表記（`ユーザー発言/考え/思考`）を必要箇所に残す。
 - 暫定結論と次アクションを分けて書く。
 
+### Mermaid 図（任意）
+
+- 図があると理解が速くなる場合のみ ` ```mermaid ` ブロックを追加する。
+- 本文（結論・前提・判断理由）を先に書き、図は補助として使う。図だけで結論を表現しない。
+- 1ノートあたり 1〜2 図を目安にし、過剰に増やさない。
+- 図を入れる候補:
+  - 処理フロー（RAG検索、レビュー手順、PoC段階構成）
+  - 判断分岐（選定ロジック、採用判断の条件）
+  - 構成関係（システム/コンポーネントの関係）
+- `general` では一般化した図にする（PJ固有名を減らす）。
+- `project` では暫定案であることを明記し、未確定部分は図中または直下に `要確認` を書く。
+- Mermaid を表示できない環境もあるため、図の直前または直後に 1〜3 行で要点を文章化する。
+
 ## README Index Maintenance
 
 `README.md` の既存の手書き構成を壊さないことを優先する。
@@ -91,6 +104,31 @@ README に管理ブロックがない場合:
 
 1. 手動で既存構成を維持したまま追記する。
 2. またはスクリプトで末尾に管理ブロックを追加する。
+
+## Tier 1（手動フォールバック）
+
+Python やスクリプトが使えない環境でも、このスキルは手動で運用できる。
+スクリプトは高速化・ミス削減のための補助として扱い、止まった場合でも作業を継続する。
+
+### 手動で完了する最小手順（依存なし）
+
+1. `Mode Selection` を使って `general` / `project` を判断する。
+2. 対象フォルダ（`一般資料` / `PJ特化ノート`）の既存ファイル名を見て、次番号または番号帯の空きを決める。
+3. `assets/templates/general-note.md` または `assets/templates/project-note.md` をコピーして新規Markdownを作成する。
+4. タイトル、目的、結論、論点、参考リンクを埋める。
+5. `README.md` に索引を手動で追記する（既存の手書き構成を壊さない）。
+6. 上部の README 戻りリンクと相対リンクを目視で確認する。
+7. `references/quality-checklist.md` を見て最終確認する。
+
+### 手動運用時の注意
+
+- 番号帯を守る（例: RAG系は `10-19`）。
+- PJ特化ノートではユーザー起点の発想を `ユーザー発言/考え/思考` として残す。
+- 最新性が重要な技術情報は、確認日と参考リンクを明記する。
+
+### Tier 2（推奨・自動化あり）
+
+Python が使える環境では `scripts/create_note.py` / `scripts/update_readme_index.py` / `scripts/validate_note_links.py` を使って、採番・索引更新・リンク検査を自動化する。
 
 ## Scripts
 
@@ -142,3 +180,4 @@ python3 scripts/validate_note_links.py /root/mywork/note/PJ特化ノート
 
 完了前に `references/quality-checklist.md` を確認する。
 自動生成の結果を過信せず、分類・結論・出典・リンクを最終確認する。
+Mermaid 図を入れた場合は、本文と矛盾していないか・図だけにしか重要情報が書かれていない状態になっていないかを確認する。

@@ -129,7 +129,7 @@ def render_block(grouped: dict[str, list[Path]], readme_dir: Path) -> str:
         START_MARKER,
         "## 自動生成索引（管理ブロック）",
         "",
-        "> このブロックは `skills/research-note-authoring/scripts/update_readme_index.py` で更新",
+        "> このブロックは `research-note-authoring/scripts/update_readme_index.py` で更新",
         f"> 更新時刻: {jst_now_text()} (JST)",
         "",
     ]
