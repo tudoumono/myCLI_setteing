@@ -1,0 +1,4 @@
+interface:
+  display_name: "会議リンク議事録"
+  short_description: "会議トランスクリプトから相互リンク付きMarkdown議事録を構造化生成する"
+  default_prompt: "$build-linked-meeting-notes を使って、この会議トランスクリプトから日付付きの目次ページとトピック別Markdown議事録を作成してください。"
